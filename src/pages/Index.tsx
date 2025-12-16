@@ -480,6 +480,52 @@ export default function Index() {
     return code;
   };
 
+  const generateGherkinScenarios = (): string => {
+    let gherkin = '';
+
+    useCases.forEach((uc, ucIdx) => {
+      const steps = useCaseSteps
+        .filter(s => s.use_case_id === uc.id)
+        .sort((a, b) => a.step_number - b.step_number);
+      
+      if (steps.length === 0) return;
+
+      gherkin += `Сценарий: ${uc.title}\n`;
+      
+      // Preconditions as Given
+      if (uc.preconditions && uc.preconditions.length > 0) {
+        uc.preconditions.forEach((pre, idx) => {
+          if (pre.trim()) {
+            gherkin += `  ${idx === 0 ? 'Дано' : 'И'}: ${pre}\n`;
+          }
+        });
+      }
+
+      // Steps as When/Then
+      steps.forEach((step, idx) => {
+        if (step.user_action) {
+          gherkin += `  ${idx === 0 ? 'Когда' : 'И'}: ${step.user_action}\n`;
+        }
+        if (step.system_response) {
+          gherkin += `  Тогда: ${step.system_response}\n`;
+        }
+      });
+
+      // Postconditions as final Then
+      if (uc.postconditions && uc.postconditions.length > 0) {
+        uc.postconditions.forEach(post => {
+          if (post.trim()) {
+            gherkin += `  И: ${post}\n`;
+          }
+        });
+      }
+
+      gherkin += '\n';
+    });
+
+    return gherkin || 'Добавьте Use Cases и шаги для автогенерации Gherkin сценариев';
+  };
+
   const filteredStories = userStories.filter(story => {
     if (filterPriority !== 'all' && story.priority !== filterPriority) return false;
     if (filterEpic !== 'all' && story.epic !== filterEpic) return false;
@@ -1481,24 +1527,86 @@ export default function Index() {
                         </TabsContent>
 
                         <TabsContent value="acceptance" className="space-y-4 py-4">
-                          <Card className="p-4">
-                            <h3 className="font-semibold mb-4">Smart Gherkin-редактор</h3>
-                            <div className="space-y-3">
-                              <Textarea 
-                                placeholder={`Сценарий: Успешное добавление товара в корзину
-  Дано: Я авторизованный пользователь
-  И: Товар "iPhone 15" доступен в каталоге
-  Когда: Я добавляю товар "iPhone 15" в корзину
-  Тогда: В корзине отображается 1 товар
-  И: Отображается сообщение "Товар добавлен"`}
-                                className="min-h-48 font-mono text-sm"
-                              />
-                              <Button variant="outline" size="sm">
-                                <Icon name="Sparkles" size={16} className="mr-2" />
-                                Сгенерировать тест-кейсы на основе AC
-                              </Button>
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h3 className="font-semibold text-lg flex items-center gap-2">
+                                  <Icon name="FileCheck" size={20} className="text-green-400" />
+                                  Критерии приемки (Gherkin)
+                                </h3>
+                                <p className="text-sm text-muted-foreground">Автоматически сгенерировано из Use Cases</p>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button variant="outline" size="sm" onClick={() => {
+                                  const gherkin = generateGherkinScenarios();
+                                  navigator.clipboard.writeText(gherkin);
+                                }}>
+                                  <Icon name="Copy" size={16} className="mr-2" />
+                                  Копировать Gherkin
+                                </Button>
+                                <Button variant="outline" size="sm">
+                                  <Icon name="Sparkles" size={16} className="mr-2" />
+                                  Сгенерировать тест-кейсы
+                                </Button>
+                              </div>
                             </div>
-                          </Card>
+
+                            <Card className="p-4">
+                              <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
+                                <Icon name="Info" size={16} />
+                                <span>BDD формат: Given (Дано) → When (Когда) → Then (Тогда)</span>
+                              </div>
+                              <Textarea 
+                                value={generateGherkinScenarios()}
+                                readOnly
+                                className="min-h-96 font-mono text-sm bg-muted/20 border-2"
+                              />
+                            </Card>
+
+                            {useCases.length > 0 && (
+                              <div className="grid md:grid-cols-2 gap-4">
+                                {useCases.map((uc) => {
+                                  const steps = useCaseSteps.filter(s => s.use_case_id === uc.id);
+                                  const hasSteps = steps.length > 0;
+                                  const hasPreconditions = uc.preconditions.some(p => p.trim());
+                                  const hasPostconditions = uc.postconditions.some(p => p.trim());
+
+                                  return (
+                                    <Card key={uc.id} className="p-4 hover-scale">
+                                      <div className="flex items-center gap-2 mb-3">
+                                        <Icon name="CheckCircle2" size={18} className={
+                                          hasSteps && hasPreconditions && hasPostconditions
+                                            ? 'text-green-400'
+                                            : 'text-yellow-400'
+                                        } />
+                                        <h4 className="font-semibold text-sm">{uc.title}</h4>
+                                      </div>
+                                      <div className="space-y-2 text-xs">
+                                        <div className="flex items-center gap-2">
+                                          <Icon name={hasPreconditions ? 'Check' : 'X'} size={14} className={hasPreconditions ? 'text-green-400' : 'text-muted-foreground'} />
+                                          <span className={hasPreconditions ? '' : 'text-muted-foreground'}>
+                                            Предусловия: {uc.preconditions.filter(p => p.trim()).length}
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <Icon name={hasSteps ? 'Check' : 'X'} size={14} className={hasSteps ? 'text-green-400' : 'text-muted-foreground'} />
+                                          <span className={hasSteps ? '' : 'text-muted-foreground'}>
+                                            Шаги действий: {steps.length}
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <Icon name={hasPostconditions ? 'Check' : 'X'} size={14} className={hasPostconditions ? 'text-green-400' : 'text-muted-foreground'} />
+                                          <span className={hasPostconditions ? '' : 'text-muted-foreground'}>
+                                            Постусловия: {uc.postconditions.filter(p => p.trim()).length}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </Card>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
                         </TabsContent>
 
                         <TabsContent value="relations" className="space-y-4 py-4">
