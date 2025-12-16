@@ -415,6 +415,71 @@ export default function Index() {
     }
   };
 
+  const generateMermaidCode = (): string => {
+    let code = 'sequenceDiagram\n';
+    code += '    participant U as Пользователь\n';
+    code += '    participant S as Система\n';
+    code += '    participant A as API\n\n';
+
+    useCases.forEach(uc => {
+      const steps = useCaseSteps
+        .filter(s => s.use_case_id === uc.id)
+        .sort((a, b) => a.step_number - b.step_number);
+      
+      if (steps.length > 0) {
+        code += `    Note over U,A: ${uc.title}\n`;
+        steps.forEach(step => {
+          if (step.user_action) {
+            code += `    U->>S: ${step.user_action}\n`;
+          }
+          if (step.api_endpoint) {
+            code += `    S->>A: ${step.api_endpoint}\n`;
+            code += `    A-->>S: Response\n`;
+          }
+          if (step.system_response) {
+            code += `    S-->>U: ${step.system_response}\n`;
+          }
+        });
+        code += '\n';
+      }
+    });
+
+    return code;
+  };
+
+  const generatePlantUMLCode = (): string => {
+    let code = '@startuml\n';
+    code += 'actor "Пользователь" as U\n';
+    code += 'participant "Система" as S\n';
+    code += 'participant "API" as A\n\n';
+
+    useCases.forEach(uc => {
+      const steps = useCaseSteps
+        .filter(s => s.use_case_id === uc.id)
+        .sort((a, b) => a.step_number - b.step_number);
+      
+      if (steps.length > 0) {
+        code += `== ${uc.title} ==\n`;
+        steps.forEach(step => {
+          if (step.user_action) {
+            code += `U -> S: ${step.user_action}\n`;
+          }
+          if (step.api_endpoint) {
+            code += `S -> A: ${step.api_endpoint}\n`;
+            code += `A --> S: Response\n`;
+          }
+          if (step.system_response) {
+            code += `S --> U: ${step.system_response}\n`;
+          }
+        });
+        code += '\n';
+      }
+    });
+
+    code += '@enduml';
+    return code;
+  };
+
   const filteredStories = userStories.filter(story => {
     if (filterPriority !== 'all' && story.priority !== filterPriority) return false;
     if (filterEpic !== 'all' && story.epic !== filterEpic) return false;
@@ -1288,21 +1353,131 @@ export default function Index() {
                         </TabsContent>
 
                         <TabsContent value="diagram" className="space-y-4 py-4">
-                          <Card className="p-8 text-center">
-                            <Icon name="Network" size={64} className="mx-auto mb-4 text-blue-400" />
-                            <h3 className="font-semibold text-lg mb-2">Диаграмма последовательности</h3>
-                            <p className="text-muted-foreground mb-4">Автогенерация на основе Use Cases</p>
-                            <div className="flex gap-3 justify-center">
-                              <Button variant="outline">
-                                <Icon name="Settings" size={16} className="mr-2" />
-                                Настроить детали
-                              </Button>
-                              <Button variant="outline">
-                                <Icon name="Download" size={16} className="mr-2" />
-                                Экспорт PlantUML / Mermaid
-                              </Button>
+                          {useCases.length === 0 || useCaseSteps.length === 0 ? (
+                            <Card className="p-8 text-center">
+                              <Icon name="Network" size={64} className="mx-auto mb-4 text-blue-400 opacity-50" />
+                              <h3 className="font-semibold text-lg mb-2">Диаграмма последовательности</h3>
+                              <p className="text-muted-foreground mb-4">Добавьте Use Cases и шаги для автогенерации диаграммы</p>
+                            </Card>
+                          ) : (
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h3 className="font-semibold text-lg flex items-center gap-2">
+                                    <Icon name="Network" size={20} className="text-blue-400" />
+                                    Sequence диаграмма
+                                  </h3>
+                                  <p className="text-sm text-muted-foreground">Автоматически сгенерировано из {useCases.length} Use Case(s)</p>
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button variant="outline" size="sm" onClick={() => {
+                                    const mermaidCode = generateMermaidCode();
+                                    navigator.clipboard.writeText(mermaidCode);
+                                  }}>
+                                    <Icon name="Copy" size={16} className="mr-2" />
+                                    Копировать Mermaid
+                                  </Button>
+                                  <Button variant="outline" size="sm" onClick={() => {
+                                    const plantUmlCode = generatePlantUMLCode();
+                                    navigator.clipboard.writeText(plantUmlCode);
+                                  }}>
+                                    <Icon name="Copy" size={16} className="mr-2" />
+                                    Копировать PlantUML
+                                  </Button>
+                                </div>
+                              </div>
+
+                              <Card className="p-6 bg-gradient-to-br from-card to-muted/20">
+                                <div className="flex justify-center gap-8 mb-8">
+                                  <div className="text-center">
+                                    <div className="w-24 h-12 bg-gradient-to-br from-purple-500 to-blue-500 rounded-lg flex items-center justify-center mb-2">
+                                      <Icon name="User" size={24} className="text-white" />
+                                    </div>
+                                    <p className="text-sm font-semibold">Пользователь</p>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="w-24 h-12 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center mb-2">
+                                      <Icon name="Globe" size={24} className="text-white" />
+                                    </div>
+                                    <p className="text-sm font-semibold">Система</p>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="w-24 h-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg flex items-center justify-center mb-2">
+                                      <Icon name="Database" size={24} className="text-white" />
+                                    </div>
+                                    <p className="text-sm font-semibold">API</p>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                  {useCases.map((uc) => {
+                                    const steps = useCaseSteps
+                                      .filter(s => s.use_case_id === uc.id)
+                                      .sort((a, b) => a.step_number - b.step_number);
+                                    
+                                    if (steps.length === 0) return null;
+
+                                    return (
+                                      <div key={uc.id} className="border-l-4 border-purple-500 pl-4 py-2">
+                                        <h4 className="font-semibold text-sm mb-3 text-purple-400">
+                                          Use Case: {uc.title}
+                                        </h4>
+                                        <div className="space-y-3">
+                                          {steps.map((step, idx) => (
+                                            <div key={step.id} className="relative">
+                                              <div className="flex items-center gap-3">
+                                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold">
+                                                  {step.step_number}
+                                                </div>
+                                                <div className="flex-1 grid grid-cols-3 gap-3">
+                                                  <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                      <Icon name="ArrowRight" size={14} className="text-purple-400" />
+                                                      <span className="text-xs text-purple-400 font-semibold">Действие</span>
+                                                    </div>
+                                                    <p className="text-sm">{step.user_action || 'Не указано'}</p>
+                                                  </div>
+                                                  
+                                                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                      <Icon name="ArrowLeft" size={14} className="text-blue-400" />
+                                                      <span className="text-xs text-blue-400 font-semibold">Ответ</span>
+                                                    </div>
+                                                    <p className="text-sm">{step.system_response || 'Не указано'}</p>
+                                                  </div>
+
+                                                  <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                      <Icon name="Zap" size={14} className="text-green-400" />
+                                                      <span className="text-xs text-green-400 font-semibold">API</span>
+                                                    </div>
+                                                    <p className="text-xs font-mono">{step.api_endpoint || 'Нет привязки'}</p>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                              {idx < steps.length - 1 && (
+                                                <div className="ml-4 mt-2 mb-2 h-6 border-l-2 border-dashed border-border"></div>
+                                              )}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </Card>
+
+                              <Card className="p-4 bg-muted/20">
+                                <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                                  <Icon name="Code" size={16} />
+                                  Mermaid код
+                                </h4>
+                                <pre className="text-xs font-mono bg-background p-3 rounded border border-border overflow-x-auto">
+                                  {generateMermaidCode()}
+                                </pre>
+                              </Card>
                             </div>
-                          </Card>
+                          )}
                         </TabsContent>
 
                         <TabsContent value="acceptance" className="space-y-4 py-4">
