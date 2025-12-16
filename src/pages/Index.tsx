@@ -154,6 +154,7 @@ export default function Index() {
   const [isCompletenessDialogOpen, setIsCompletenessDialogOpen] = useState(false);
   const [completenessReport, setCompletenessReport] = useState<any>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const draftTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     loadVisionData();
@@ -176,6 +177,44 @@ export default function Index() {
       loadComments(selectedStoryId);
     }
   }, [selectedStoryId]);
+
+  useEffect(() => {
+    const draft = localStorage.getItem('userStoryDraft');
+    if (draft && isDialogOpen) {
+      try {
+        const parsed = JSON.parse(draft);
+        setNewStory(parsed.story);
+        setUseCases(parsed.useCases || []);
+        setUseCaseSteps(parsed.steps || []);
+      } catch (e) {
+        console.error('Error loading draft:', e);
+      }
+    }
+  }, [isDialogOpen]);
+
+  useEffect(() => {
+    if (draftTimerRef.current) {
+      clearTimeout(draftTimerRef.current);
+    }
+
+    if (isDialogOpen) {
+      draftTimerRef.current = setTimeout(() => {
+        const draft = {
+          story: newStory,
+          useCases,
+          steps: useCaseSteps,
+          timestamp: Date.now()
+        };
+        localStorage.setItem('userStoryDraft', JSON.stringify(draft));
+      }, 2000);
+    }
+
+    return () => {
+      if (draftTimerRef.current) {
+        clearTimeout(draftTimerRef.current);
+      }
+    };
+  }, [newStory, useCases, useCaseSteps, isDialogOpen]);
 
   const loadVisionData = async () => {
     try {
@@ -334,7 +373,10 @@ export default function Index() {
         business_value: 5,
         story_points: 3
       });
+      setUseCases([]);
+      setUseCaseSteps([]);
       setActiveTab('basic');
+      localStorage.removeItem('userStoryDraft');
       setIsDialogOpen(false);
     } catch (error) {
       console.error('Error creating story:', error);
@@ -740,7 +782,7 @@ export default function Index() {
                   <Icon name="Rocket" size={24} className="text-white" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold">Project Pipeline</h1>
+                  <h1 className="text-xl font-bold">Архитектор</h1>
                   <p className="text-sm text-muted-foreground">Платформа управления разработкой</p>
                 </div>
               </div>
@@ -1001,7 +1043,7 @@ export default function Index() {
             {currentStage === 2 && (
               <div>
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-3xl font-bold">User Stories & Требования</h2>
+                  <h2 className="text-3xl font-bold">Требования</h2>
                   <div className="flex gap-3">
                     <Select value={filterPriority} onValueChange={setFilterPriority}>
                       <SelectTrigger className="w-40">
@@ -1948,7 +1990,16 @@ export default function Index() {
                         <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                           Отмена
                         </Button>
-                        <Button variant="outline">
+                        <Button variant="outline" onClick={() => {
+                          const draft = {
+                            story: newStory,
+                            useCases,
+                            steps: useCaseSteps,
+                            timestamp: Date.now()
+                          };
+                          localStorage.setItem('userStoryDraft', JSON.stringify(draft));
+                        }}>
+                          <Icon name="Save" size={16} className="mr-2" />
                           Сохранить черновик
                         </Button>
                         <Button 
