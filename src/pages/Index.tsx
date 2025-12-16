@@ -526,6 +526,107 @@ export default function Index() {
     return gherkin || 'Добавьте Use Cases и шаги для автогенерации Gherkin сценариев';
   };
 
+  const exportUserStoryToMarkdown = (): string => {
+    const now = new Date().toLocaleDateString('ru-RU');
+    let md = `# User Story: ${newStory.role ? `Как ${newStory.role}, я хочу ${newStory.action}` : 'Документация'}\n\n`;
+    md += `**Дата создания:** ${now}\n\n`;
+    md += `---\n\n`;
+
+    // Основные данные
+    md += `## 📋 Основные данные\n\n`;
+    md += `**Как:** ${newStory.role || 'Не указано'}\n\n`;
+    md += `**Я хочу:** ${newStory.action || 'Не указано'}\n\n`;
+    md += `**Чтобы:** ${newStory.benefit || 'Не указано'}\n\n`;
+    md += `**Приоритет:** ${newStory.priority}\n\n`;
+    md += `**Epic:** ${newStory.epic || 'Не указан'}\n\n`;
+    md += `**Бизнес-ценность:** ${newStory.business_value}/10\n\n`;
+    md += `**Story Points:** ${newStory.story_points}\n\n`;
+    md += `---\n\n`;
+
+    // Use Cases
+    if (useCases.length > 0) {
+      md += `## 🎯 Use Cases\n\n`;
+      useCases.forEach((uc, idx) => {
+        md += `### Use Case #${idx + 1}: ${uc.title}\n\n`;
+        md += `**Тип:** ${uc.type === 'primary' ? 'Основной' : uc.type === 'alternative' ? 'Альтернативный' : 'Исключительный'}\n\n`;
+        
+        // Preconditions
+        if (uc.preconditions.some(p => p.trim())) {
+          md += `**Предусловия:**\n`;
+          uc.preconditions.forEach(pre => {
+            if (pre.trim()) md += `- ${pre}\n`;
+          });
+          md += `\n`;
+        }
+
+        // Steps
+        const steps = useCaseSteps
+          .filter(s => s.use_case_id === uc.id)
+          .sort((a, b) => a.step_number - b.step_number);
+        
+        if (steps.length > 0) {
+          md += `**Шаги:**\n\n`;
+          md += `| # | Действие пользователя | Ответ системы | API Endpoint |\n`;
+          md += `|---|------------------------|---------------|-------------|\n`;
+          steps.forEach(step => {
+            md += `| ${step.step_number} | ${step.user_action || '-'} | ${step.system_response || '-'} | \`${step.api_endpoint || '-'}\` |\n`;
+          });
+          md += `\n`;
+        }
+
+        // Postconditions
+        if (uc.postconditions.some(p => p.trim())) {
+          md += `**Постусловия:**\n`;
+          uc.postconditions.forEach(post => {
+            if (post.trim()) md += `- ${post}\n`;
+          });
+          md += `\n`;
+        }
+      });
+      md += `---\n\n`;
+    }
+
+    // Sequence Diagram
+    if (useCases.length > 0 && useCaseSteps.length > 0) {
+      md += `## 🔄 Sequence Диаграмма\n\n`;
+      md += `### Mermaid\n\n`;
+      md += '```mermaid\n';
+      md += generateMermaidCode();
+      md += '```\n\n';
+      md += `### PlantUML\n\n`;
+      md += '```plantuml\n';
+      md += generatePlantUMLCode();
+      md += '```\n\n';
+      md += `---\n\n`;
+    }
+
+    // Acceptance Criteria
+    const gherkin = generateGherkinScenarios();
+    if (gherkin && !gherkin.includes('Добавьте')) {
+      md += `## ✅ Критерии приемки (Gherkin)\n\n`;
+      md += '```gherkin\n';
+      md += gherkin;
+      md += '```\n\n';
+      md += `---\n\n`;
+    }
+
+    md += `\n*Документ сгенерирован автоматически из Project Pipeline*\n`;
+    return md;
+  };
+
+  const downloadMarkdown = () => {
+    const markdown = exportUserStoryToMarkdown();
+    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `user-story-${newStory.role || 'export'}-${Date.now()}.md`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const filteredStories = userStories.filter(story => {
     if (filterPriority !== 'all' && story.priority !== filterPriority) return false;
     if (filterEpic !== 'all' && story.epic !== filterEpic) return false;
@@ -1639,9 +1740,16 @@ export default function Index() {
                       </Tabs>
 
                       <div className="flex gap-3 pt-4 border-t mt-6">
-                        <Button variant="outline">
-                          <Icon name="Eye" size={16} className="mr-2" />
-                          Превью US
+                        <Button variant="outline" onClick={downloadMarkdown}>
+                          <Icon name="Download" size={16} className="mr-2" />
+                          Экспорт Markdown
+                        </Button>
+                        <Button variant="outline" onClick={() => {
+                          const markdown = exportUserStoryToMarkdown();
+                          navigator.clipboard.writeText(markdown);
+                        }}>
+                          <Icon name="Copy" size={16} className="mr-2" />
+                          Копировать документ
                         </Button>
                         <Button variant="outline">
                           <Icon name="CheckCircle" size={16} className="mr-2" />
