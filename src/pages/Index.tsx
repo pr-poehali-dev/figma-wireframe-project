@@ -51,6 +51,7 @@ interface Comment {
 export default function Index() {
   const [currentStage, setCurrentStage] = useState(2);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isArchDialogOpen, setIsArchDialogOpen] = useState(false);
   const [selectedCanvas, setSelectedCanvas] = useState('context');
   const [userStories, setUserStories] = useState<UserStory[]>([]);
   const [archElements, setArchElements] = useState<ArchElement[]>([]);
@@ -60,6 +61,10 @@ export default function Index() {
   const [comments, setComments] = useState<Record<number, Comment[]>>({});
   const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(true);
+  const [filterPriority, setFilterPriority] = useState<string>('all');
+  const [filterEpic, setFilterEpic] = useState<string>('all');
+  const [newStory, setNewStory] = useState({ role: '', action: '', benefit: '', priority: 'must', epic: '' });
+  const [newElement, setNewElement] = useState({ type: 'Система', name: '' });
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -176,6 +181,50 @@ export default function Index() {
     }
   };
 
+  const createUserStory = async () => {
+    if (!newStory.role || !newStory.action || !newStory.benefit) return;
+
+    try {
+      const response = await fetch(`${API_URL}?action=stories`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newStory),
+      });
+      const createdStory = await response.json();
+      setUserStories(prev => [createdStory, ...prev]);
+      setNewStory({ role: '', action: '', benefit: '', priority: 'must', epic: '' });
+      setIsDialogOpen(false);
+    } catch (error) {
+      console.error('Error creating story:', error);
+    }
+  };
+
+  const createArchElement = async () => {
+    if (!newElement.name) return;
+
+    try {
+      const response = await fetch(`${API_URL}?action=arch-elements`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...newElement, x: 100, y: 100 }),
+      });
+      const createdElement = await response.json();
+      setArchElements(prev => [...prev, createdElement]);
+      setNewElement({ type: 'Система', name: '' });
+      setIsArchDialogOpen(false);
+    } catch (error) {
+      console.error('Error creating element:', error);
+    }
+  };
+
+  const filteredStories = userStories.filter(story => {
+    if (filterPriority !== 'all' && story.priority !== filterPriority) return false;
+    if (filterEpic !== 'all' && story.epic !== filterEpic) return false;
+    return true;
+  });
+
+  const uniqueEpics = Array.from(new Set(userStories.map(s => s.epic).filter(Boolean)));
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
@@ -259,6 +308,31 @@ export default function Index() {
               <div>
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-3xl font-bold">User Stories & Требования</h2>
+                  <div className="flex gap-3">
+                    <Select value={filterPriority} onValueChange={setFilterPriority}>
+                      <SelectTrigger className="w-40">
+                        <SelectValue placeholder="Приоритет" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Все</SelectItem>
+                        <SelectItem value="Must">Must</SelectItem>
+                        <SelectItem value="Should">Should</SelectItem>
+                        <SelectItem value="Could">Could</SelectItem>
+                        <SelectItem value="Wont">Won't</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    
+                    <Select value={filterEpic} onValueChange={setFilterEpic}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Epic" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Все Epic</SelectItem>
+                        {uniqueEpics.map(epic => (
+                          <SelectItem key={epic} value={epic}>{epic}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                     <DialogTrigger asChild>
                       <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90">
@@ -273,32 +347,37 @@ export default function Index() {
                       <div className="space-y-6 py-4">
                         <div className="space-y-2">
                           <Label>Как (роль/персона)</Label>
-                          <Select>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Выберите роль" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="pm">Product Manager</SelectItem>
-                              <SelectItem value="dev">Developer</SelectItem>
-                              <SelectItem value="architect">Architect</SelectItem>
-                              <SelectItem value="user">End User</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <Input 
+                            placeholder="Например: Product Manager" 
+                            value={newStory.role}
+                            onChange={(e) => setNewStory(prev => ({ ...prev, role: e.target.value }))}
+                          />
                         </div>
 
                         <div className="space-y-2">
                           <Label>Я хочу (действие/цель)</Label>
-                          <Input placeholder="Например: создать User Story" />
+                          <Input 
+                            placeholder="Например: создать User Story" 
+                            value={newStory.action}
+                            onChange={(e) => setNewStory(prev => ({ ...prev, action: e.target.value }))}
+                          />
                         </div>
 
                         <div className="space-y-2">
                           <Label>Чтобы (выгода/ценность)</Label>
-                          <Textarea placeholder="Например: управлять требованиями проекта" />
+                          <Textarea 
+                            placeholder="Например: управлять требованиями проекта" 
+                            value={newStory.benefit}
+                            onChange={(e) => setNewStory(prev => ({ ...prev, benefit: e.target.value }))}
+                          />
                         </div>
 
                         <div className="space-y-2">
                           <Label>Приоритет (MoSCoW)</Label>
-                          <RadioGroup defaultValue="must">
+                          <RadioGroup 
+                            value={newStory.priority} 
+                            onValueChange={(value) => setNewStory(prev => ({ ...prev, priority: value }))}
+                          >
                             <div className="flex items-center space-x-2">
                               <RadioGroupItem value="must" id="must" />
                               <Label htmlFor="must" className="font-normal cursor-pointer">
@@ -328,16 +407,11 @@ export default function Index() {
 
                         <div className="space-y-2">
                           <Label>Привязать к Epic</Label>
-                          <Select>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Выберите Epic" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="requirements">Управление требованиями</SelectItem>
-                              <SelectItem value="architecture">Архитектура системы</SelectItem>
-                              <SelectItem value="api">API Design</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <Input 
+                            placeholder="Например: Управление требованиями" 
+                            value={newStory.epic}
+                            onChange={(e) => setNewStory(prev => ({ ...prev, epic: e.target.value }))}
+                          />
                         </div>
 
                         <div className="space-y-2">
@@ -356,7 +430,10 @@ export default function Index() {
                         </div>
 
                         <div className="flex gap-3 pt-4">
-                          <Button className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600">
+                          <Button 
+                            className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600"
+                            onClick={createUserStory}
+                          >
                             Сохранить
                           </Button>
                           <Button variant="outline" className="flex-1" onClick={() => setIsDialogOpen(false)}>
@@ -368,6 +445,10 @@ export default function Index() {
                   </Dialog>
                 </div>
 
+                <div className="mb-4 text-sm text-muted-foreground">
+                  Показано {filteredStories.length} из {userStories.length} историй
+                </div>
+                
                 <div className="grid gap-4">
                   {loading ? (
                     <Card className="p-6 text-center text-muted-foreground">
@@ -375,7 +456,7 @@ export default function Index() {
                       Загрузка историй...
                     </Card>
                   ) : (
-                    userStories.map((story) => (
+                    filteredStories.map((story) => (
                     <Card key={story.id} className="p-6 hover-scale transition-all">
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
@@ -462,10 +543,55 @@ export default function Index() {
                       <Icon name="Download" size={18} className="mr-2" />
                       Экспорт
                     </Button>
-                    <Button className="bg-gradient-to-r from-purple-600 to-blue-600">
-                      <Icon name="Plus" size={18} className="mr-2" />
-                      Добавить элемент
-                    </Button>
+                    <Dialog open={isArchDialogOpen} onOpenChange={setIsArchDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button className="bg-gradient-to-r from-purple-600 to-blue-600">
+                          <Icon name="Plus" size={18} className="mr-2" />
+                          Добавить элемент
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Новый архитектурный элемент</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div className="space-y-2">
+                            <Label>Тип элемента</Label>
+                            <Select value={newElement.type} onValueChange={(value) => setNewElement(prev => ({ ...prev, type: value }))}>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Система">Система</SelectItem>
+                                <SelectItem value="Пользователь">Пользователь</SelectItem>
+                                <SelectItem value="Внешняя система">Внешняя система</SelectItem>
+                                <SelectItem value="База данных">База данных</SelectItem>
+                                <SelectItem value="Микросервис">Микросервис</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Название</Label>
+                            <Input 
+                              placeholder="Например: API Gateway"
+                              value={newElement.name}
+                              onChange={(e) => setNewElement(prev => ({ ...prev, name: e.target.value }))}
+                            />
+                          </div>
+                          <div className="flex gap-3 pt-4">
+                            <Button 
+                              className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600"
+                              onClick={createArchElement}
+                            >
+                              Создать
+                            </Button>
+                            <Button variant="outline" className="flex-1" onClick={() => setIsArchDialogOpen(false)}>
+                              Отмена
+                            </Button>
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
                   </div>
                 </div>
 

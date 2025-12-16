@@ -128,6 +128,24 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'isBase64Encoded': False
             }
         
+        elif method == 'POST' and action == 'arch-elements':
+            data = json.loads(event.get('body', '{}'))
+            cur.execute('''
+                INSERT INTO architecture_elements (project_id, canvas_type, element_type, name, x_position, y_position)
+                VALUES (1, 'context', %s, %s, %s, %s)
+                RETURNING id, element_type as type, name, x_position as x, y_position as y
+            ''', (data['type'], data['name'], data['x'], data['y']))
+            
+            new_element = cur.fetchone()
+            conn.commit()
+            
+            return {
+                'statusCode': 201,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps(dict(new_element), default=str),
+                'isBase64Encoded': False
+            }
+        
         elif method == 'PUT' and action == 'arch-elements':
             data = json.loads(event.get('body', '{}'))
             cur.execute('''
