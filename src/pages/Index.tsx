@@ -948,6 +948,158 @@ export default function Index() {
                                         ))}
                                       </div>
 
+                                      <div>
+                                        <div className="flex items-center justify-between mb-3">
+                                          <Label className="text-base">Таблица шагов Use Case</Label>
+                                          <Button 
+                                            size="sm" 
+                                            variant="outline"
+                                            onClick={() => {
+                                              const currentSteps = useCaseSteps.filter(s => s.use_case_id === editingUseCase.id);
+                                              setUseCaseSteps(prev => [...prev, {
+                                                id: Date.now(),
+                                                use_case_id: editingUseCase.id,
+                                                step_number: currentSteps.length + 1,
+                                                user_action: '',
+                                                system_response: '',
+                                                api_endpoint: ''
+                                              }]);
+                                            }}
+                                          >
+                                            <Icon name="Plus" size={14} className="mr-1" />
+                                            Добавить шаг
+                                          </Button>
+                                        </div>
+                                        
+                                        <div className="border border-border rounded-lg overflow-hidden">
+                                          <table className="w-full text-sm">
+                                            <thead className="bg-muted/50">
+                                              <tr>
+                                                <th className="p-2 text-left w-12">#</th>
+                                                <th className="p-2 text-left">Действие пользователя</th>
+                                                <th className="p-2 text-left">Ответ системы</th>
+                                                <th className="p-2 text-left w-48">API Endpoint</th>
+                                                <th className="p-2 w-20"></th>
+                                              </tr>
+                                            </thead>
+                                            <tbody>
+                                              {useCaseSteps
+                                                .filter(step => step.use_case_id === editingUseCase.id)
+                                                .sort((a, b) => a.step_number - b.step_number)
+                                                .map((step, stepIdx) => (
+                                                <tr key={step.id} className="border-t border-border hover:bg-muted/20">
+                                                  <td className="p-2 text-center text-muted-foreground">{step.step_number}</td>
+                                                  <td className="p-2">
+                                                    <Input 
+                                                      placeholder="Пользователь нажимает 'Добавить'"
+                                                      value={step.user_action}
+                                                      onChange={(e) => {
+                                                        setUseCaseSteps(prev => prev.map(s => 
+                                                          s.id === step.id ? {...s, user_action: e.target.value} : s
+                                                        ));
+                                                      }}
+                                                      className="h-8 text-sm"
+                                                    />
+                                                  </td>
+                                                  <td className="p-2">
+                                                    <Input 
+                                                      placeholder="Система добавляет товар в корзину"
+                                                      value={step.system_response}
+                                                      onChange={(e) => {
+                                                        setUseCaseSteps(prev => prev.map(s => 
+                                                          s.id === step.id ? {...s, system_response: e.target.value} : s
+                                                        ));
+                                                      }}
+                                                      className="h-8 text-sm"
+                                                    />
+                                                  </td>
+                                                  <td className="p-2">
+                                                    <div className="flex items-center gap-1">
+                                                      <Input 
+                                                        placeholder="POST /api/cart"
+                                                        value={step.api_endpoint}
+                                                        onChange={(e) => {
+                                                          setUseCaseSteps(prev => prev.map(s => 
+                                                            s.id === step.id ? {...s, api_endpoint: e.target.value} : s
+                                                          ));
+                                                        }}
+                                                        className="h-8 text-xs font-mono flex-1"
+                                                      />
+                                                      {step.api_endpoint && (
+                                                        <Icon name="CheckCircle2" size={16} className="text-green-400" />
+                                                      )}
+                                                    </div>
+                                                  </td>
+                                                  <td className="p-2">
+                                                    <div className="flex gap-1">
+                                                      {stepIdx > 0 && (
+                                                        <Button 
+                                                          size="icon" 
+                                                          variant="ghost" 
+                                                          className="h-7 w-7"
+                                                          onClick={() => {
+                                                            setUseCaseSteps(prev => prev.map(s => {
+                                                              if (s.id === step.id) return {...s, step_number: step.step_number - 1};
+                                                              if (s.use_case_id === step.use_case_id && s.step_number === step.step_number - 1) {
+                                                                return {...s, step_number: s.step_number + 1};
+                                                              }
+                                                              return s;
+                                                            }));
+                                                          }}
+                                                        >
+                                                          <Icon name="ArrowUp" size={14} />
+                                                        </Button>
+                                                      )}
+                                                      {stepIdx < useCaseSteps.filter(s => s.use_case_id === editingUseCase.id).length - 1 && (
+                                                        <Button 
+                                                          size="icon" 
+                                                          variant="ghost" 
+                                                          className="h-7 w-7"
+                                                          onClick={() => {
+                                                            setUseCaseSteps(prev => prev.map(s => {
+                                                              if (s.id === step.id) return {...s, step_number: step.step_number + 1};
+                                                              if (s.use_case_id === step.use_case_id && s.step_number === step.step_number + 1) {
+                                                                return {...s, step_number: s.step_number - 1};
+                                                              }
+                                                              return s;
+                                                            }));
+                                                          }}
+                                                        >
+                                                          <Icon name="ArrowDown" size={14} />
+                                                        </Button>
+                                                      )}
+                                                      <Button 
+                                                        size="icon" 
+                                                        variant="ghost" 
+                                                        className="h-7 w-7"
+                                                        onClick={() => {
+                                                          setUseCaseSteps(prev => {
+                                                            const filtered = prev.filter(s => s.id !== step.id);
+                                                            return filtered.map(s => 
+                                                              s.use_case_id === step.use_case_id && s.step_number > step.step_number
+                                                                ? {...s, step_number: s.step_number - 1}
+                                                                : s
+                                                            );
+                                                          });
+                                                        }}
+                                                      >
+                                                        <Icon name="Trash2" size={14} className="text-destructive" />
+                                                      </Button>
+                                                    </div>
+                                                  </td>
+                                                </tr>
+                                              ))}
+                                            </tbody>
+                                          </table>
+                                          {useCaseSteps.filter(s => s.use_case_id === editingUseCase.id).length === 0 && (
+                                            <div className="p-8 text-center text-muted-foreground text-sm">
+                                              <Icon name="Table" size={32} className="mx-auto mb-2 opacity-50" />
+                                              <p>Нет шагов. Добавьте первый шаг Use Case.</p>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+
                                       <div className="flex gap-2">
                                         <Button size="sm" onClick={() => {
                                           setUseCases(prev => prev.map(u => u.id === editingUseCase.id ? editingUseCase : u));
