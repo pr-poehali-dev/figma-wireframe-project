@@ -297,10 +297,125 @@ export default function Index() {
           <div className="max-w-7xl mx-auto animate-fade-in">
             {currentStage === 1 && (
               <div>
-                <h2 className="text-3xl font-bold mb-6">Vision & Goals</h2>
-                <Card className="p-6">
-                  <p className="text-muted-foreground">Определение видения проекта и ключевых целей...</p>
-                </Card>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-3xl font-bold">Vision & Goals</h2>
+                  <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90">
+                    <Icon name="Save" size={18} className="mr-2" />
+                    Сохранить Vision
+                  </Button>
+                </div>
+
+                <div className="grid gap-6">
+                  <Card className="p-6 hover-scale transition-all">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center">
+                        <Icon name="Target" size={24} className="text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-semibold">Видение проекта</h3>
+                        <p className="text-sm text-muted-foreground">Определите главную цель и миссию</p>
+                      </div>
+                    </div>
+                    <Textarea 
+                      placeholder="Например: Создать платформу для управления проектами, которая упростит коллаборацию команд разработки..."
+                      className="min-h-32 text-base"
+                    />
+                  </Card>
+
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <Card className="p-6 hover-scale transition-all">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
+                          <Icon name="Users" size={20} className="text-white" />
+                        </div>
+                        <h3 className="text-lg font-semibold">Целевая аудитория</h3>
+                      </div>
+                      <Textarea 
+                        placeholder="Кто будет использовать продукт?"
+                        className="min-h-24"
+                      />
+                    </Card>
+
+                    <Card className="p-6 hover-scale transition-all">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                          <Icon name="Zap" size={20} className="text-white" />
+                        </div>
+                        <h3 className="text-lg font-semibold">Ценностное предложение</h3>
+                      </div>
+                      <Textarea 
+                        placeholder="Какую уникальную ценность даёт продукт?"
+                        className="min-h-24"
+                      />
+                    </Card>
+                  </div>
+
+                  <Card className="p-6 hover-scale transition-all">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
+                          <Icon name="CheckCircle2" size={20} className="text-white" />
+                        </div>
+                        <h3 className="text-lg font-semibold">Ключевые цели (OKR)</h3>
+                      </div>
+                      <Button variant="outline" size="sm">
+                        <Icon name="Plus" size={16} className="mr-2" />
+                        Добавить цель
+                      </Button>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      {[
+                        { objective: 'Запустить MVP', keyResults: ['100+ пользователей за первый месяц', 'NPS > 50', '80% retention'] },
+                        { objective: 'Достичь product-market fit', keyResults: ['50% organic growth', '10+ enterprise клиентов', 'ARR $100k'] }
+                      ].map((okr, idx) => (
+                        <div key={idx} className="border border-border rounded-lg p-4 bg-muted/20">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Icon name="Flag" size={18} className="text-yellow-400" />
+                            <Input 
+                              defaultValue={okr.objective}
+                              className="font-semibold bg-transparent border-none p-0 h-auto focus-visible:ring-0"
+                            />
+                          </div>
+                          <div className="space-y-2 ml-6">
+                            {okr.keyResults.map((kr, krIdx) => (
+                              <div key={krIdx} className="flex items-center gap-2">
+                                <Icon name="CircleDot" size={14} className="text-blue-400" />
+                                <Input 
+                                  defaultValue={kr}
+                                  className="text-sm bg-transparent border-none p-0 h-auto focus-visible:ring-0"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <Card className="p-4 text-center hover-scale transition-all">
+                      <Icon name="Calendar" size={32} className="mx-auto mb-2 text-orange-400" />
+                      <h4 className="font-semibold mb-1">Timeline</h4>
+                      <p className="text-2xl font-bold text-purple-400">6 месяцев</p>
+                      <p className="text-xs text-muted-foreground mt-1">до запуска MVP</p>
+                    </Card>
+
+                    <Card className="p-4 text-center hover-scale transition-all">
+                      <Icon name="DollarSign" size={32} className="mx-auto mb-2 text-green-400" />
+                      <h4 className="font-semibold mb-1">Бюджет</h4>
+                      <p className="text-2xl font-bold text-purple-400">$50k</p>
+                      <p className="text-xs text-muted-foreground mt-1">начальные инвестиции</p>
+                    </Card>
+
+                    <Card className="p-4 text-center hover-scale transition-all">
+                      <Icon name="TrendingUp" size={32} className="mx-auto mb-2 text-blue-400" />
+                      <h4 className="font-semibold mb-1">Метрика успеха</h4>
+                      <p className="text-2xl font-bold text-purple-400">1000+</p>
+                      <p className="text-xs text-muted-foreground mt-1">активных пользователей</p>
+                    </Card>
+                  </div>
+                </div>
               </div>
             )}
 
