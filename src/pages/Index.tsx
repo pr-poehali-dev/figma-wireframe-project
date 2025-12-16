@@ -29,6 +29,34 @@ interface UserStory {
   benefit: string;
   priority: string;
   epic: string;
+  business_value?: number;
+  story_points?: number;
+}
+
+interface UseCase {
+  id: number;
+  story_id: number;
+  title: string;
+  type: 'primary' | 'alternative' | 'exceptional';
+  preconditions: string[];
+  postconditions: string[];
+}
+
+interface UseCaseStep {
+  id: number;
+  use_case_id: number;
+  step_number: number;
+  user_action: string;
+  system_response: string;
+  api_endpoint: string;
+}
+
+interface AcceptanceCriteria {
+  id: number;
+  story_id: number;
+  given: string;
+  when: string;
+  then: string;
 }
 
 interface ArchElement {
@@ -78,8 +106,28 @@ export default function Index() {
   const [loading, setLoading] = useState(true);
   const [filterPriority, setFilterPriority] = useState<string>('all');
   const [filterEpic, setFilterEpic] = useState<string>('all');
-  const [newStory, setNewStory] = useState({ role: '', action: '', benefit: '', priority: 'must', epic: '' });
+  const [newStory, setNewStory] = useState({ 
+    role: '', 
+    action: '', 
+    benefit: '', 
+    priority: 'must', 
+    epic: '',
+    business_value: 5,
+    story_points: 3
+  });
   const [newElement, setNewElement] = useState({ type: 'Система', name: '' });
+  const [activeTab, setActiveTab] = useState('basic');
+  const [useCases, setUseCases] = useState<UseCase[]>([]);
+  const [useCaseSteps, setUseCaseSteps] = useState<UseCaseStep[]>([]);
+  const [editingUseCase, setEditingUseCase] = useState<UseCase | null>(null);
+  const [isUseCaseDialogOpen, setIsUseCaseDialogOpen] = useState(false);
+  const [newUseCase, setNewUseCase] = useState({
+    title: '',
+    type: 'primary' as 'primary' | 'alternative' | 'exceptional',
+    preconditions: [''],
+    postconditions: ['']
+  });
+  const [personas, setPersonas] = useState(['Покупатель', 'Администратор', 'Менеджер']);
   const [visionData, setVisionData] = useState<VisionData>({
     vision: '',
     target_audience: '',
@@ -263,7 +311,16 @@ export default function Index() {
       });
       const createdStory = await response.json();
       setUserStories(prev => [createdStory, ...prev]);
-      setNewStory({ role: '', action: '', benefit: '', priority: 'must', epic: '' });
+      setNewStory({ 
+        role: '', 
+        action: '', 
+        benefit: '', 
+        priority: 'must', 
+        epic: '',
+        business_value: 5,
+        story_points: 3
+      });
+      setActiveTab('basic');
       setIsDialogOpen(false);
     } catch (error) {
       console.error('Error creating story:', error);
@@ -660,106 +717,409 @@ export default function Index() {
                           Создать User Story
                         </Button>
                       </DialogTrigger>
-                    <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                    <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
                       <DialogHeader>
-                        <DialogTitle className="text-2xl">Новая User Story</DialogTitle>
+                        <DialogTitle className="text-2xl">Создание User Story с Use Cases</DialogTitle>
                       </DialogHeader>
-                      <div className="space-y-6 py-4">
-                        <div className="space-y-2">
-                          <Label>Как (роль/персона)</Label>
-                          <Input 
-                            placeholder="Например: Product Manager" 
-                            value={newStory.role}
-                            onChange={(e) => setNewStory(prev => ({ ...prev, role: e.target.value }))}
-                          />
-                        </div>
+                      
+                      <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
+                        <TabsList className="grid w-full grid-cols-5">
+                          <TabsTrigger value="basic">Основные данные</TabsTrigger>
+                          <TabsTrigger value="usecases">Use Cases</TabsTrigger>
+                          <TabsTrigger value="diagram">Диаграмма</TabsTrigger>
+                          <TabsTrigger value="acceptance">Критерии приемки</TabsTrigger>
+                          <TabsTrigger value="relations">Связи</TabsTrigger>
+                        </TabsList>
 
-                        <div className="space-y-2">
-                          <Label>Я хочу (действие/цель)</Label>
-                          <Input 
-                            placeholder="Например: создать User Story" 
-                            value={newStory.action}
-                            onChange={(e) => setNewStory(prev => ({ ...prev, action: e.target.value }))}
-                          />
-                        </div>
+                        <TabsContent value="basic" className="space-y-6 py-4">
+                          <Card className="p-4 bg-muted/20">
+                            <h3 className="font-semibold mb-4 flex items-center gap-2">
+                              <Icon name="User" size={18} className="text-purple-400" />
+                              Секция A: Формат User Story
+                            </h3>
+                            <div className="space-y-4">
+                              <div>
+                                <Label>Как (As a...)</Label>
+                                <Select value={newStory.role} onValueChange={(value) => setNewStory(prev => ({ ...prev, role: value }))}>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Выберите роль" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {personas.map(p => (
+                                      <SelectItem key={p} value={p}>{p}</SelectItem>
+                                    ))}
+                                    <SelectItem value="__new__">+ Создать нового персонажа</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
 
-                        <div className="space-y-2">
-                          <Label>Чтобы (выгода/ценность)</Label>
-                          <Textarea 
-                            placeholder="Например: управлять требованиями проекта" 
-                            value={newStory.benefit}
-                            onChange={(e) => setNewStory(prev => ({ ...prev, benefit: e.target.value }))}
-                          />
-                        </div>
+                              <div>
+                                <Label>Я хочу (I want...)</Label>
+                                <Input 
+                                  placeholder="управлять элементами корзины покупок" 
+                                  value={newStory.action}
+                                  onChange={(e) => setNewStory(prev => ({ ...prev, action: e.target.value }))}
+                                />
+                              </div>
 
-                        <div className="space-y-2">
-                          <Label>Приоритет (MoSCoW)</Label>
-                          <RadioGroup 
-                            value={newStory.priority} 
-                            onValueChange={(value) => setNewStory(prev => ({ ...prev, priority: value }))}
-                          >
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem value="must" id="must" />
-                              <Label htmlFor="must" className="font-normal cursor-pointer">
-                                Must have - Критичная функциональность
-                              </Label>
+                              <div>
+                                <Label>Чтобы (So that...)</Label>
+                                <Textarea 
+                                  placeholder="легко добавлять/удалять товары перед заказом" 
+                                  value={newStory.benefit}
+                                  onChange={(e) => setNewStory(prev => ({ ...prev, benefit: e.target.value }))}
+                                />
+                              </div>
                             </div>
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem value="should" id="should" />
-                              <Label htmlFor="should" className="font-normal cursor-pointer">
-                                Should have - Важная функциональность
-                              </Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem value="could" id="could" />
-                              <Label htmlFor="could" className="font-normal cursor-pointer">
-                                Could have - Желательная функциональность
-                              </Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem value="wont" id="wont" />
-                              <Label htmlFor="wont" className="font-normal cursor-pointer">
-                                Won't have - Не в этой итерации
-                              </Label>
-                            </div>
-                          </RadioGroup>
-                        </div>
+                          </Card>
 
-                        <div className="space-y-2">
-                          <Label>Привязать к Epic</Label>
-                          <Input 
-                            placeholder="Например: Управление требованиями" 
-                            value={newStory.epic}
-                            onChange={(e) => setNewStory(prev => ({ ...prev, epic: e.target.value }))}
-                          />
-                        </div>
+                          <Card className="p-4 bg-muted/20">
+                            <h3 className="font-semibold mb-4 flex items-center gap-2">
+                              <Icon name="Settings" size={18} className="text-blue-400" />
+                              Секция B: Метаданные
+                            </h3>
+                            <div className="space-y-4">
+                              <div>
+                                <Label className="mb-3 block">Приоритет (MoSCoW)</Label>
+                                <RadioGroup 
+                                  value={newStory.priority} 
+                                  onValueChange={(value) => setNewStory(prev => ({ ...prev, priority: value }))}
+                                  className="flex gap-4"
+                                >
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="must" id="must" />
+                                    <Label htmlFor="must" className="font-normal cursor-pointer">Must</Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="should" id="should" />
+                                    <Label htmlFor="should" className="font-normal cursor-pointer">Should</Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="could" id="could" />
+                                    <Label htmlFor="could" className="font-normal cursor-pointer">Could</Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="wont" id="wont" />
+                                    <Label htmlFor="wont" className="font-normal cursor-pointer">Won't</Label>
+                                  </div>
+                                </RadioGroup>
+                              </div>
 
-                        <div className="space-y-2">
-                          <Label>Критерии приемки (Acceptance Criteria)</Label>
-                          <div className="space-y-3">
-                            <div className="grid grid-cols-3 gap-2">
-                              <Input placeholder="Дано (Given)" />
-                              <Input placeholder="Когда (When)" />
-                              <Input placeholder="Тогда (Then)" />
+                              <div>
+                                <Label>Epic</Label>
+                                <Input 
+                                  placeholder="Управление заказами" 
+                                  value={newStory.epic}
+                                  onChange={(e) => setNewStory(prev => ({ ...prev, epic: e.target.value }))}
+                                />
+                              </div>
+
+                              <div>
+                                <Label>Бизнес-ценность (1-10): {newStory.business_value}</Label>
+                                <input 
+                                  type="range" 
+                                  min="1" 
+                                  max="10" 
+                                  value={newStory.business_value}
+                                  onChange={(e) => setNewStory(prev => ({ ...prev, business_value: parseInt(e.target.value) }))}
+                                  className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-purple-500"
+                                />
+                              </div>
+
+                              <div>
+                                <Label>Сложность (Story Points)</Label>
+                                <div className="flex gap-2 mt-2">
+                                  {[1, 2, 3, 5, 8, 13].map(points => (
+                                    <button
+                                      key={points}
+                                      onClick={() => setNewStory(prev => ({ ...prev, story_points: points }))}
+                                      className={`px-4 py-2 rounded-lg border-2 transition-all ${
+                                        newStory.story_points === points
+                                          ? 'border-purple-500 bg-purple-500/20 font-bold'
+                                          : 'border-border hover:border-purple-400'
+                                      }`}
+                                    >
+                                      {points}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
                             </div>
-                            <Button variant="outline" size="sm">
-                              <Icon name="Plus" size={14} className="mr-2" />
-                              Добавить критерий
+                          </Card>
+                        </TabsContent>
+
+                        <TabsContent value="usecases" className="space-y-4 py-4">
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="font-semibold">Динамический список сценариев</h3>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => setIsUseCaseDialogOpen(true)}
+                            >
+                              <Icon name="Plus" size={16} className="mr-2" />
+                              Добавить Use Case
                             </Button>
                           </div>
-                        </div>
 
-                        <div className="flex gap-3 pt-4">
-                          <Button 
-                            className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600"
-                            onClick={createUserStory}
-                          >
-                            Сохранить
-                          </Button>
-                          <Button variant="outline" className="flex-1" onClick={() => setIsDialogOpen(false)}>
-                            Отмена
-                          </Button>
-                        </div>
+                          <div className="space-y-3">
+                            {useCases.length === 0 ? (
+                              <Card className="p-8 text-center text-muted-foreground">
+                                <Icon name="FileQuestion" size={48} className="mx-auto mb-3 opacity-50" />
+                                <p>Пока нет Use Cases</p>
+                                <p className="text-sm">Добавьте первый сценарий использования</p>
+                              </Card>
+                            ) : (
+                              useCases.map((uc, idx) => (
+                                <Card key={uc.id} className="p-4 hover-scale">
+                                  <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center gap-3">
+                                      <Icon name="ListChecks" size={20} className="text-blue-400" />
+                                      <div>
+                                        <h4 className="font-semibold">Use Case #{idx + 1}: {uc.title}</h4>
+                                        <Badge variant={uc.type === 'primary' ? 'default' : 'secondary'} className="text-xs mt-1">
+                                          {uc.type === 'primary' ? 'Основной' : uc.type === 'alternative' ? 'Альтернативный' : 'Исключительный'}
+                                        </Badge>
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <Button variant="ghost" size="sm" onClick={() => setEditingUseCase(uc)}>
+                                        <Icon name="Edit" size={16} />
+                                      </Button>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm"
+                                        onClick={() => setUseCases(prev => prev.filter(u => u.id !== uc.id))}
+                                      >
+                                        <Icon name="Trash2" size={16} className="text-destructive" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                  
+                                  {editingUseCase?.id === uc.id && (
+                                    <div className="mt-4 p-4 border border-border rounded-lg bg-muted/20 space-y-4 animate-fade-in">
+                                      <div>
+                                        <Label>Название Use Case</Label>
+                                        <Input value={editingUseCase.title} onChange={(e) => setEditingUseCase({...editingUseCase, title: e.target.value})} />
+                                      </div>
+                                      
+                                      <div>
+                                        <Label>Тип</Label>
+                                        <RadioGroup value={editingUseCase.type} onValueChange={(v: any) => setEditingUseCase({...editingUseCase, type: v})} className="flex gap-4 mt-2">
+                                          <div className="flex items-center space-x-2">
+                                            <RadioGroupItem value="primary" id="primary" />
+                                            <Label htmlFor="primary" className="font-normal">Основной</Label>
+                                          </div>
+                                          <div className="flex items-center space-x-2">
+                                            <RadioGroupItem value="alternative" id="alternative" />
+                                            <Label htmlFor="alternative" className="font-normal">Альтернативный</Label>
+                                          </div>
+                                          <div className="flex items-center space-x-2">
+                                            <RadioGroupItem value="exceptional" id="exceptional" />
+                                            <Label htmlFor="exceptional" className="font-normal">Исключительный</Label>
+                                          </div>
+                                        </RadioGroup>
+                                      </div>
+
+                                      <div>
+                                        <Label>Предусловия</Label>
+                                        {editingUseCase.preconditions.map((pre, idx) => (
+                                          <div key={idx} className="flex gap-2 mt-2">
+                                            <input type="checkbox" defaultChecked className="rounded mt-1" />
+                                            <Input value={pre} onChange={(e) => {
+                                              const newPre = [...editingUseCase.preconditions];
+                                              newPre[idx] = e.target.value;
+                                              setEditingUseCase({...editingUseCase, preconditions: newPre});
+                                            }} />
+                                          </div>
+                                        ))}
+                                      </div>
+
+                                      <div>
+                                        <Label>Постусловия</Label>
+                                        {editingUseCase.postconditions.map((post, idx) => (
+                                          <div key={idx} className="flex gap-2 mt-2">
+                                            <input type="checkbox" defaultChecked className="rounded mt-1" />
+                                            <Input value={post} onChange={(e) => {
+                                              const newPost = [...editingUseCase.postconditions];
+                                              newPost[idx] = e.target.value;
+                                              setEditingUseCase({...editingUseCase, postconditions: newPost});
+                                            }} />
+                                          </div>
+                                        ))}
+                                      </div>
+
+                                      <div className="flex gap-2">
+                                        <Button size="sm" onClick={() => {
+                                          setUseCases(prev => prev.map(u => u.id === editingUseCase.id ? editingUseCase : u));
+                                          setEditingUseCase(null);
+                                        }}>
+                                          Сохранить
+                                        </Button>
+                                        <Button size="sm" variant="outline" onClick={() => setEditingUseCase(null)}>
+                                          Отмена
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </Card>
+                              ))
+                            )}
+                          </div>
+
+                          <Dialog open={isUseCaseDialogOpen} onOpenChange={setIsUseCaseDialogOpen}>
+                            <DialogContent className="max-w-2xl">
+                              <DialogHeader>
+                                <DialogTitle>Новый Use Case</DialogTitle>
+                              </DialogHeader>
+                              <div className="space-y-4 py-4">
+                                <div>
+                                  <Label>Название Use Case</Label>
+                                  <Input 
+                                    placeholder="Добавление товара в корзину"
+                                    value={newUseCase.title}
+                                    onChange={(e) => setNewUseCase(prev => ({...prev, title: e.target.value}))}
+                                  />
+                                </div>
+
+                                <div>
+                                  <Label>Тип</Label>
+                                  <RadioGroup value={newUseCase.type} onValueChange={(v: any) => setNewUseCase(prev => ({...prev, type: v}))} className="flex gap-4 mt-2">
+                                    <div className="flex items-center space-x-2">
+                                      <RadioGroupItem value="primary" id="uc-primary" />
+                                      <Label htmlFor="uc-primary" className="font-normal">Основной</Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <RadioGroupItem value="alternative" id="uc-alternative" />
+                                      <Label htmlFor="uc-alternative" className="font-normal">Альтернативный</Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <RadioGroupItem value="exceptional" id="uc-exceptional" />
+                                      <Label htmlFor="uc-exceptional" className="font-normal">Исключительный</Label>
+                                    </div>
+                                  </RadioGroup>
+                                </div>
+
+                                <div className="flex gap-3">
+                                  <Button 
+                                    className="flex-1"
+                                    onClick={() => {
+                                      setUseCases(prev => [...prev, {
+                                        id: Date.now(),
+                                        story_id: 0,
+                                        title: newUseCase.title,
+                                        type: newUseCase.type,
+                                        preconditions: ['Пользователь авторизован'],
+                                        postconditions: ['Система обновлена']
+                                      }]);
+                                      setNewUseCase({title: '', type: 'primary', preconditions: [''], postconditions: ['']});
+                                      setIsUseCaseDialogOpen(false);
+                                    }}
+                                  >
+                                    Создать
+                                  </Button>
+                                  <Button variant="outline" className="flex-1" onClick={() => setIsUseCaseDialogOpen(false)}>
+                                    Отмена
+                                  </Button>
+                                </div>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        </TabsContent>
+
+                        <TabsContent value="diagram" className="space-y-4 py-4">
+                          <Card className="p-8 text-center">
+                            <Icon name="Network" size={64} className="mx-auto mb-4 text-blue-400" />
+                            <h3 className="font-semibold text-lg mb-2">Диаграмма последовательности</h3>
+                            <p className="text-muted-foreground mb-4">Автогенерация на основе Use Cases</p>
+                            <div className="flex gap-3 justify-center">
+                              <Button variant="outline">
+                                <Icon name="Settings" size={16} className="mr-2" />
+                                Настроить детали
+                              </Button>
+                              <Button variant="outline">
+                                <Icon name="Download" size={16} className="mr-2" />
+                                Экспорт PlantUML / Mermaid
+                              </Button>
+                            </div>
+                          </Card>
+                        </TabsContent>
+
+                        <TabsContent value="acceptance" className="space-y-4 py-4">
+                          <Card className="p-4">
+                            <h3 className="font-semibold mb-4">Smart Gherkin-редактор</h3>
+                            <div className="space-y-3">
+                              <Textarea 
+                                placeholder={`Сценарий: Успешное добавление товара в корзину
+  Дано: Я авторизованный пользователь
+  И: Товар "iPhone 15" доступен в каталоге
+  Когда: Я добавляю товар "iPhone 15" в корзину
+  Тогда: В корзине отображается 1 товар
+  И: Отображается сообщение "Товар добавлен"`}
+                                className="min-h-48 font-mono text-sm"
+                              />
+                              <Button variant="outline" size="sm">
+                                <Icon name="Sparkles" size={16} className="mr-2" />
+                                Сгенерировать тест-кейсы на основе AC
+                              </Button>
+                            </div>
+                          </Card>
+                        </TabsContent>
+
+                        <TabsContent value="relations" className="space-y-4 py-4">
+                          <Card className="p-4">
+                            <h3 className="font-semibold mb-4">Связанные артефакты</h3>
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-2 p-2 border border-border rounded">
+                                <input type="checkbox" className="rounded" />
+                                <Label className="font-normal">BPMN-процесс "Оформление заказа"</Label>
+                              </div>
+                              <div className="flex items-center gap-2 p-2 border border-border rounded">
+                                <input type="checkbox" className="rounded" />
+                                <Label className="font-normal">Сущность "Cart" в ER-диаграмме</Label>
+                              </div>
+                            </div>
+
+                            <h3 className="font-semibold mt-6 mb-4">Зависимости</h3>
+                            <div className="space-y-2 text-sm">
+                              <p className="flex items-center gap-2">
+                                <Icon name="ArrowLeft" size={16} className="text-orange-400" />
+                                Зависит от: "Просмотр каталога товаров"
+                              </p>
+                              <p className="flex items-center gap-2">
+                                <Icon name="ArrowRight" size={16} className="text-green-400" />
+                                Блокирует: "Оформление заказа"
+                              </p>
+                            </div>
+                          </Card>
+                        </TabsContent>
+                      </Tabs>
+
+                      <div className="flex gap-3 pt-4 border-t mt-6">
+                        <Button variant="outline">
+                          <Icon name="Eye" size={16} className="mr-2" />
+                          Превью US
+                        </Button>
+                        <Button variant="outline">
+                          <Icon name="CheckCircle" size={16} className="mr-2" />
+                          Проверить полноту
+                        </Button>
+                        <Button variant="outline">
+                          <Icon name="Sparkles" size={16} className="mr-2" />
+                          AI-ассистент
+                        </Button>
+                        <div className="flex-1" />
+                        <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                          Отмена
+                        </Button>
+                        <Button variant="outline">
+                          Сохранить черновик
+                        </Button>
+                        <Button 
+                          className="bg-gradient-to-r from-purple-600 to-blue-600"
+                          onClick={createUserStory}
+                        >
+                          Сохранить и перейти к ТЗ
+                        </Button>
                       </div>
                     </DialogContent>
                     </Dialog>
