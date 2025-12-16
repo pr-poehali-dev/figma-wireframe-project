@@ -1018,9 +1018,9 @@ export default function Index() {
                             </h3>
                             <div className="space-y-4">
                               <div>
-                                <Label>Как (As a...)</Label>
+                                <Label className={!newStory.role ? 'text-red-400' : ''}>Как (As a...) {!newStory.role && '*'}</Label>
                                 <Select value={newStory.role} onValueChange={(value) => setNewStory(prev => ({ ...prev, role: value }))}>
-                                  <SelectTrigger>
+                                  <SelectTrigger className={!newStory.role ? 'border-red-400' : ''}>
                                     <SelectValue placeholder="Выберите роль" />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -1033,20 +1033,22 @@ export default function Index() {
                               </div>
 
                               <div>
-                                <Label>Я хочу (I want...)</Label>
+                                <Label className={!newStory.action ? 'text-red-400' : ''}>Я хочу (I want...) {!newStory.action && '*'}</Label>
                                 <Input 
                                   placeholder="управлять элементами корзины покупок" 
                                   value={newStory.action}
                                   onChange={(e) => setNewStory(prev => ({ ...prev, action: e.target.value }))}
+                                  className={!newStory.action ? 'border-red-400' : ''}
                                 />
                               </div>
 
                               <div>
-                                <Label>Чтобы (So that...)</Label>
+                                <Label className={!newStory.benefit ? 'text-red-400' : ''}>Чтобы (So that...) {!newStory.benefit && '*'}</Label>
                                 <Textarea 
                                   placeholder="легко добавлять/удалять товары перед заказом" 
                                   value={newStory.benefit}
                                   onChange={(e) => setNewStory(prev => ({ ...prev, benefit: e.target.value }))}
+                                  className={!newStory.benefit ? 'border-red-400' : ''}
                                 />
                               </div>
                             </div>
@@ -1085,11 +1087,12 @@ export default function Index() {
                               </div>
 
                               <div>
-                                <Label>Epic</Label>
+                                <Label className={!newStory.epic ? 'text-red-400' : ''}>Epic {!newStory.epic && '*'}</Label>
                                 <Input 
                                   placeholder="Управление заказами" 
                                   value={newStory.epic}
                                   onChange={(e) => setNewStory(prev => ({ ...prev, epic: e.target.value }))}
+                                  className={!newStory.epic ? 'border-red-400' : ''}
                                 />
                               </div>
 
@@ -1142,10 +1145,10 @@ export default function Index() {
 
                           <div className="space-y-3">
                             {useCases.length === 0 ? (
-                              <Card className="p-8 text-center text-muted-foreground">
-                                <Icon name="FileQuestion" size={48} className="mx-auto mb-3 opacity-50" />
-                                <p>Пока нет Use Cases</p>
-                                <p className="text-sm">Добавьте первый сценарий использования</p>
+                              <Card className="p-8 text-center border-2 border-dashed border-yellow-400/50 bg-yellow-500/5">
+                                <Icon name="AlertCircle" size={48} className="mx-auto mb-3 text-yellow-400" />
+                                <p className="font-semibold">Пока нет Use Cases *</p>
+                                <p className="text-sm text-muted-foreground">Добавьте первый сценарий использования</p>
                               </Card>
                             ) : (
                               useCases.map((uc, idx) => (
@@ -1154,7 +1157,12 @@ export default function Index() {
                                     <div className="flex items-center gap-3">
                                       <Icon name="ListChecks" size={20} className="text-blue-400" />
                                       <div>
-                                        <h4 className="font-semibold">Use Case #{idx + 1}: {uc.title}</h4>
+                                        <h4 className="font-semibold">
+                                          Use Case #{idx + 1}: {uc.title}
+                                          {(!uc.preconditions.some(p => p.trim()) || !uc.postconditions.some(p => p.trim()) || useCaseSteps.filter(s => s.use_case_id === uc.id).length === 0) && (
+                                            <Icon name="AlertCircle" size={16} className="inline ml-2 text-yellow-400" />
+                                          )}
+                                        </h4>
                                         <Badge variant={uc.type === 'primary' ? 'default' : 'secondary'} className="text-xs mt-1">
                                           {uc.type === 'primary' ? 'Основной' : uc.type === 'alternative' ? 'Альтернативный' : 'Исключительный'}
                                         </Badge>
@@ -1200,36 +1208,50 @@ export default function Index() {
                                       </div>
 
                                       <div>
-                                        <Label>Предусловия</Label>
+                                        <Label className={!editingUseCase.preconditions.some(p => p.trim()) ? 'text-red-400' : ''}>
+                                          Предусловия {!editingUseCase.preconditions.some(p => p.trim()) && '*'}
+                                        </Label>
                                         {editingUseCase.preconditions.map((pre, idx) => (
                                           <div key={idx} className="flex gap-2 mt-2">
                                             <input type="checkbox" defaultChecked className="rounded mt-1" />
-                                            <Input value={pre} onChange={(e) => {
-                                              const newPre = [...editingUseCase.preconditions];
-                                              newPre[idx] = e.target.value;
-                                              setEditingUseCase({...editingUseCase, preconditions: newPre});
-                                            }} />
+                                            <Input 
+                                              value={pre} 
+                                              onChange={(e) => {
+                                                const newPre = [...editingUseCase.preconditions];
+                                                newPre[idx] = e.target.value;
+                                                setEditingUseCase({...editingUseCase, preconditions: newPre});
+                                              }}
+                                              className={!editingUseCase.preconditions.some(p => p.trim()) ? 'border-yellow-400' : ''}
+                                            />
                                           </div>
                                         ))}
                                       </div>
 
                                       <div>
-                                        <Label>Постусловия</Label>
+                                        <Label className={!editingUseCase.postconditions.some(p => p.trim()) ? 'text-red-400' : ''}>
+                                          Постусловия {!editingUseCase.postconditions.some(p => p.trim()) && '*'}
+                                        </Label>
                                         {editingUseCase.postconditions.map((post, idx) => (
                                           <div key={idx} className="flex gap-2 mt-2">
                                             <input type="checkbox" defaultChecked className="rounded mt-1" />
-                                            <Input value={post} onChange={(e) => {
-                                              const newPost = [...editingUseCase.postconditions];
-                                              newPost[idx] = e.target.value;
-                                              setEditingUseCase({...editingUseCase, postconditions: newPost});
-                                            }} />
+                                            <Input 
+                                              value={post} 
+                                              onChange={(e) => {
+                                                const newPost = [...editingUseCase.postconditions];
+                                                newPost[idx] = e.target.value;
+                                                setEditingUseCase({...editingUseCase, postconditions: newPost});
+                                              }}
+                                              className={!editingUseCase.postconditions.some(p => p.trim()) ? 'border-yellow-400' : ''}
+                                            />
                                           </div>
                                         ))}
                                       </div>
 
                                       <div>
                                         <div className="flex items-center justify-between mb-3">
-                                          <Label className="text-base">Таблица шагов Use Case</Label>
+                                          <Label className={`text-base ${useCaseSteps.filter(s => s.use_case_id === editingUseCase.id).length === 0 ? 'text-red-400' : ''}`}>
+                                            Таблица шагов Use Case {useCaseSteps.filter(s => s.use_case_id === editingUseCase.id).length === 0 && '*'}
+                                          </Label>
                                           <Button 
                                             size="sm" 
                                             variant="outline"
@@ -1277,7 +1299,7 @@ export default function Index() {
                                                           s.id === step.id ? {...s, user_action: e.target.value} : s
                                                         ));
                                                       }}
-                                                      className="h-8 text-sm"
+                                                      className={`h-8 text-sm ${!step.user_action ? 'border-yellow-400' : ''}`}
                                                     />
                                                   </td>
                                                   <td className="p-2">
@@ -1289,7 +1311,7 @@ export default function Index() {
                                                           s.id === step.id ? {...s, system_response: e.target.value} : s
                                                         ));
                                                       }}
-                                                      className="h-8 text-sm"
+                                                      className={`h-8 text-sm ${!step.system_response ? 'border-yellow-400' : ''}`}
                                                     />
                                                   </td>
                                                   <td className="p-2">
@@ -1328,12 +1350,14 @@ export default function Index() {
                                                         <>
                                                           <button
                                                             onClick={() => setEditingStepId(step.id)}
-                                                            className="flex-1 h-8 px-2 text-xs font-mono text-left border border-input rounded-md bg-background hover:bg-accent transition-colors"
+                                                            className={`flex-1 h-8 px-2 text-xs font-mono text-left border rounded-md bg-background hover:bg-accent transition-colors ${!step.api_endpoint ? 'border-yellow-400' : 'border-input'}`}
                                                           >
                                                             {step.api_endpoint || 'Выбрать endpoint...'}
                                                           </button>
-                                                          {step.api_endpoint && (
+                                                          {step.api_endpoint ? (
                                                             <Icon name="CheckCircle2" size={16} className="text-green-400" />
+                                                          ) : (
+                                                            <Icon name="AlertCircle" size={16} className="text-yellow-400" />
                                                           )}
                                                         </>
                                                       )}
@@ -1401,9 +1425,10 @@ export default function Index() {
                                             </tbody>
                                           </table>
                                           {useCaseSteps.filter(s => s.use_case_id === editingUseCase.id).length === 0 && (
-                                            <div className="p-8 text-center text-muted-foreground text-sm">
-                                              <Icon name="Table" size={32} className="mx-auto mb-2 opacity-50" />
-                                              <p>Нет шагов. Добавьте первый шаг Use Case.</p>
+                                            <div className="p-8 text-center border-2 border-dashed border-yellow-400/50 bg-yellow-500/5 text-sm">
+                                              <Icon name="AlertCircle" size={32} className="mx-auto mb-2 text-yellow-400" />
+                                              <p className="font-semibold">Нет шагов *</p>
+                                              <p className="text-muted-foreground">Добавьте первый шаг Use Case.</p>
                                             </div>
                                           )}
                                         </div>
