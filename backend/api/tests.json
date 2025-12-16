@@ -1,6 +1,31 @@
 {
   "tests": [
     {
+      "name": "Get vision and goals",
+      "method": "GET",
+      "path": "/?action=vision",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "vision": "string",
+        "timeline": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get OKRs",
+      "method": "GET",
+      "path": "/?action=okrs",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "0": {
+          "id": "number",
+          "objective": "string",
+          "key_results": "array"
+        }
+      },
+      "bodyMatcher": "partial"
+    },
+    {
       "name": "Get all user stories",
       "method": "GET",
       "path": "/?action=stories",

@@ -46,6 +46,21 @@ interface Comment {
   timestamp: string;
 }
 
+interface VisionData {
+  vision: string;
+  target_audience: string;
+  value_proposition: string;
+  timeline: string;
+  budget: string;
+  success_metric: string;
+}
+
+interface OKR {
+  id: number;
+  objective: string;
+  key_results: string[];
+}
+
 
 
 export default function Index() {
@@ -65,9 +80,20 @@ export default function Index() {
   const [filterEpic, setFilterEpic] = useState<string>('all');
   const [newStory, setNewStory] = useState({ role: '', action: '', benefit: '', priority: 'must', epic: '' });
   const [newElement, setNewElement] = useState({ type: 'Система', name: '' });
+  const [visionData, setVisionData] = useState<VisionData>({
+    vision: '',
+    target_audience: '',
+    value_proposition: '',
+    timeline: '6 месяцев',
+    budget: '$50k',
+    success_metric: '1000+'
+  });
+  const [okrs, setOkrs] = useState<OKR[]>([]);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    loadVisionData();
+    loadOKRs();
     loadUserStories();
     loadArchElements();
   }, []);
@@ -77,6 +103,40 @@ export default function Index() {
       loadComments(selectedStoryId);
     }
   }, [selectedStoryId]);
+
+  const loadVisionData = async () => {
+    try {
+      const response = await fetch(`${API_URL}?action=vision`);
+      const data = await response.json();
+      if (data.vision) {
+        setVisionData(data);
+      }
+    } catch (error) {
+      console.error('Error loading vision:', error);
+    }
+  };
+
+  const loadOKRs = async () => {
+    try {
+      const response = await fetch(`${API_URL}?action=okrs`);
+      const data = await response.json();
+      setOkrs(data);
+    } catch (error) {
+      console.error('Error loading OKRs:', error);
+    }
+  };
+
+  const saveVisionData = async () => {
+    try {
+      await fetch(`${API_URL}?action=vision`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(visionData),
+      });
+    } catch (error) {
+      console.error('Error saving vision:', error);
+    }
+  };
 
   const loadUserStories = async () => {
     try {
@@ -299,7 +359,10 @@ export default function Index() {
               <div>
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-3xl font-bold">Vision & Goals</h2>
-                  <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90">
+                  <Button 
+                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90"
+                    onClick={saveVisionData}
+                  >
                     <Icon name="Save" size={18} className="mr-2" />
                     Сохранить Vision
                   </Button>
@@ -319,6 +382,8 @@ export default function Index() {
                     <Textarea 
                       placeholder="Например: Создать платформу для управления проектами, которая упростит коллаборацию команд разработки..."
                       className="min-h-32 text-base"
+                      value={visionData.vision}
+                      onChange={(e) => setVisionData(prev => ({ ...prev, vision: e.target.value }))}
                     />
                   </Card>
 
@@ -333,6 +398,8 @@ export default function Index() {
                       <Textarea 
                         placeholder="Кто будет использовать продукт?"
                         className="min-h-24"
+                        value={visionData.target_audience}
+                        onChange={(e) => setVisionData(prev => ({ ...prev, target_audience: e.target.value }))}
                       />
                     </Card>
 
@@ -346,6 +413,8 @@ export default function Index() {
                       <Textarea 
                         placeholder="Какую уникальную ценность даёт продукт?"
                         className="min-h-24"
+                        value={visionData.value_proposition}
+                        onChange={(e) => setVisionData(prev => ({ ...prev, value_proposition: e.target.value }))}
                       />
                     </Card>
                   </div>
@@ -365,26 +434,17 @@ export default function Index() {
                     </div>
                     
                     <div className="space-y-4">
-                      {[
-                        { objective: 'Запустить MVP', keyResults: ['100+ пользователей за первый месяц', 'NPS > 50', '80% retention'] },
-                        { objective: 'Достичь product-market fit', keyResults: ['50% organic growth', '10+ enterprise клиентов', 'ARR $100k'] }
-                      ].map((okr, idx) => (
-                        <div key={idx} className="border border-border rounded-lg p-4 bg-muted/20">
+                      {okrs.map((okr) => (
+                        <div key={okr.id} className="border border-border rounded-lg p-4 bg-muted/20">
                           <div className="flex items-center gap-2 mb-3">
                             <Icon name="Flag" size={18} className="text-yellow-400" />
-                            <Input 
-                              defaultValue={okr.objective}
-                              className="font-semibold bg-transparent border-none p-0 h-auto focus-visible:ring-0"
-                            />
+                            <span className="font-semibold">{okr.objective}</span>
                           </div>
                           <div className="space-y-2 ml-6">
-                            {okr.keyResults.map((kr, krIdx) => (
+                            {okr.key_results.map((kr, krIdx) => (
                               <div key={krIdx} className="flex items-center gap-2">
                                 <Icon name="CircleDot" size={14} className="text-blue-400" />
-                                <Input 
-                                  defaultValue={kr}
-                                  className="text-sm bg-transparent border-none p-0 h-auto focus-visible:ring-0"
-                                />
+                                <span className="text-sm">{kr}</span>
                               </div>
                             ))}
                           </div>
@@ -397,21 +457,33 @@ export default function Index() {
                     <Card className="p-4 text-center hover-scale transition-all">
                       <Icon name="Calendar" size={32} className="mx-auto mb-2 text-orange-400" />
                       <h4 className="font-semibold mb-1">Timeline</h4>
-                      <p className="text-2xl font-bold text-purple-400">6 месяцев</p>
+                      <Input 
+                        className="text-2xl font-bold text-purple-400 text-center border-none bg-transparent p-0 h-auto focus-visible:ring-0"
+                        value={visionData.timeline}
+                        onChange={(e) => setVisionData(prev => ({ ...prev, timeline: e.target.value }))}
+                      />
                       <p className="text-xs text-muted-foreground mt-1">до запуска MVP</p>
                     </Card>
 
                     <Card className="p-4 text-center hover-scale transition-all">
                       <Icon name="DollarSign" size={32} className="mx-auto mb-2 text-green-400" />
                       <h4 className="font-semibold mb-1">Бюджет</h4>
-                      <p className="text-2xl font-bold text-purple-400">$50k</p>
+                      <Input 
+                        className="text-2xl font-bold text-purple-400 text-center border-none bg-transparent p-0 h-auto focus-visible:ring-0"
+                        value={visionData.budget}
+                        onChange={(e) => setVisionData(prev => ({ ...prev, budget: e.target.value }))}
+                      />
                       <p className="text-xs text-muted-foreground mt-1">начальные инвестиции</p>
                     </Card>
 
                     <Card className="p-4 text-center hover-scale transition-all">
                       <Icon name="TrendingUp" size={32} className="mx-auto mb-2 text-blue-400" />
                       <h4 className="font-semibold mb-1">Метрика успеха</h4>
-                      <p className="text-2xl font-bold text-purple-400">1000+</p>
+                      <Input 
+                        className="text-2xl font-bold text-purple-400 text-center border-none bg-transparent p-0 h-auto focus-visible:ring-0"
+                        value={visionData.success_metric}
+                        onChange={(e) => setVisionData(prev => ({ ...prev, success_metric: e.target.value }))}
+                      />
                       <p className="text-xs text-muted-foreground mt-1">активных пользователей</p>
                     </Card>
                   </div>

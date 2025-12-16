@@ -12,12 +12,17 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     API для управления проектами, user stories, комментариями и архитектурными элементами
     
+    GET /?action=vision - получить Vision & Goals проекта
+    PUT /?action=vision - обновить Vision & Goals
+    GET /?action=okrs - получить OKR проекта
+    POST /?action=okrs - создать новый OKR
     GET /?action=stories - получить все User Stories
     POST /?action=stories - создать User Story
     GET /?action=comments&story_id=X - получить комментарии
     POST /?action=comments - добавить комментарий
     GET /?action=arch-elements - получить архитектурные элементы
     PUT /?action=arch-elements - обновить позицию элемента
+    POST /?action=arch-elements - создать архитектурный элемент
     """
     method: str = event.get('httpMethod', 'GET')
     params = event.get('queryStringParameters') or {}
@@ -40,7 +45,85 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     cur = conn.cursor(cursor_factory=RealDictCursor)
     
     try:
-        if method == 'GET' and action == 'stories':
+        if method == 'GET' and action == 'vision':
+            cur.execute('''
+                SELECT vision, target_audience, value_proposition, 
+                       timeline, budget, success_metric
+                FROM projects 
+                WHERE id = 1
+            ''')
+            vision_data = cur.fetchone()
+            
+            return {
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps(dict(vision_data) if vision_data else {}, default=str),
+                'isBase64Encoded': False
+            }
+        
+        elif method == 'PUT' and action == 'vision':
+            data = json.loads(event.get('body', '{}'))
+            cur.execute('''
+                UPDATE projects
+                SET vision = %s, target_audience = %s, value_proposition = %s,
+                    timeline = %s, budget = %s, success_metric = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = 1
+                RETURNING vision, target_audience, value_proposition, timeline, budget, success_metric
+            ''', (
+                data.get('vision', ''), 
+                data.get('target_audience', ''),
+                data.get('value_proposition', ''),
+                data.get('timeline', ''),
+                data.get('budget', ''),
+                data.get('success_metric', '')
+            ))
+            
+            updated_vision = cur.fetchone()
+            conn.commit()
+            
+            return {
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps(dict(updated_vision) if updated_vision else {}, default=str),
+                'isBase64Encoded': False
+            }
+        
+        elif method == 'GET' and action == 'okrs':
+            cur.execute('''
+                SELECT id, objective, key_results, created_at, updated_at
+                FROM project_okrs
+                WHERE project_id = 1
+                ORDER BY created_at ASC
+            ''')
+            okrs = cur.fetchall()
+            
+            return {
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps([dict(row) for row in okrs], default=str),
+                'isBase64Encoded': False
+            }
+        
+        elif method == 'POST' and action == 'okrs':
+            data = json.loads(event.get('body', '{}'))
+            cur.execute('''
+                INSERT INTO project_okrs (project_id, objective, key_results)
+                VALUES (1, %s, %s)
+                RETURNING id, objective, key_results, created_at
+            ''', (data['objective'], json.dumps(data['key_results'])))
+            
+            new_okr = cur.fetchone()
+            conn.commit()
+            
+            return {
+                'statusCode': 201,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps(dict(new_okr), default=str),
+                'isBase64Encoded': False
+            }
+        
+        elif method == 'GET' and action == 'stories':
             cur.execute('''
                 SELECT id, role, action, benefit, priority, epic, 
                        created_at, updated_at 
