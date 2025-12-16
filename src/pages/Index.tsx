@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import ArchitectureStudio from '@/components/ArchitectureStudio';
 
 const stages = [
   { id: 1, name: 'Vision', icon: 'Lightbulb', color: 'text-yellow-400' },
@@ -65,6 +66,14 @@ interface ArchElement {
   name: string;
   x: number;
   y: number;
+  description?: string;
+  techStack?: string;
+  team?: string;
+  repository?: string;
+  port?: string;
+  cpu?: string;
+  memory?: string;
+  layer?: 'presentation' | 'business' | 'data' | 'infrastructure';
 }
 
 interface Comment {
@@ -155,6 +164,11 @@ export default function Index() {
   const [completenessReport, setCompletenessReport] = useState<any>(null);
   const [viewingStoryId, setViewingStoryId] = useState<number | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isArchStudioOpen, setIsArchStudioOpen] = useState(false);
+  const [selectedElement, setSelectedElement] = useState<ArchElement | null>(null);
+  const [c4Level, setC4Level] = useState<'context' | 'container' | 'component' | 'code'>('container');
+  const [showAIAssistant, setShowAIAssistant] = useState(true);
+  const [archConnections, setArchConnections] = useState<any[]>([]);
   const canvasRef = useRef<HTMLDivElement>(null);
   const draftTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -2410,13 +2424,20 @@ export default function Index() {
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-3xl font-bold">C4 Model - Архитектурный конструктор</h2>
                   <div className="flex gap-2">
+                    <Button 
+                      className="bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90"
+                      onClick={() => setIsArchStudioOpen(true)}
+                    >
+                      <Icon name="Sparkles" size={18} className="mr-2" />
+                      Architecture Studio Pro
+                    </Button>
                     <Button variant="outline">
                       <Icon name="Download" size={18} className="mr-2" />
                       Экспорт
                     </Button>
                     <Dialog open={isArchDialogOpen} onOpenChange={setIsArchDialogOpen}>
                       <DialogTrigger asChild>
-                        <Button className="bg-gradient-to-r from-purple-600 to-blue-600">
+                        <Button variant="outline">
                           <Icon name="Plus" size={18} className="mr-2" />
                           Добавить элемент
                         </Button>
@@ -2565,6 +2586,14 @@ export default function Index() {
           </div>
         </main>
       </div>
+
+      {/* Architecture Studio Pro Modal */}
+      {isArchStudioOpen && (
+        <ArchitectureStudio 
+          elements={archElements}
+          onClose={() => setIsArchStudioOpen(false)}
+        />
+      )}
     </div>
   );
 }
