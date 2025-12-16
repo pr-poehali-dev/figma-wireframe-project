@@ -151,6 +151,8 @@ export default function Index() {
   const [isAddEndpointDialogOpen, setIsAddEndpointDialogOpen] = useState(false);
   const [newEndpoint, setNewEndpoint] = useState({ method: 'GET', path: '' });
   const [editingStepId, setEditingStepId] = useState<number | null>(null);
+  const [isCompletenessDialogOpen, setIsCompletenessDialogOpen] = useState(false);
+  const [completenessReport, setCompletenessReport] = useState<any>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -625,6 +627,59 @@ export default function Index() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  };
+
+  const checkCompleteness = () => {
+    const issues: any = {
+      basic: [],
+      useCases: [],
+      steps: [],
+      overall: 0
+    };
+
+    // Проверка основных данных
+    if (!newStory.role) issues.basic.push('Не указана роль (Как...)');
+    if (!newStory.action) issues.basic.push('Не указано действие (Я хочу...)');
+    if (!newStory.benefit) issues.basic.push('Не указана выгода (Чтобы...)');
+    if (!newStory.epic) issues.basic.push('Не указан Epic');
+
+    // Проверка Use Cases
+    if (useCases.length === 0) {
+      issues.useCases.push('Нет ни одного Use Case');
+    } else {
+      useCases.forEach((uc, idx) => {
+        if (!uc.title) issues.useCases.push(`Use Case #${idx + 1}: Нет названия`);
+        if (!uc.preconditions.some(p => p.trim())) {
+          issues.useCases.push(`Use Case "${uc.title}": Нет предусловий`);
+        }
+        if (!uc.postconditions.some(p => p.trim())) {
+          issues.useCases.push(`Use Case "${uc.title}": Нет постусловий`);
+        }
+
+        // Проверка шагов
+        const steps = useCaseSteps.filter(s => s.use_case_id === uc.id);
+        if (steps.length === 0) {
+          issues.steps.push(`Use Case "${uc.title}": Нет шагов`);
+        } else {
+          steps.forEach(step => {
+            if (!step.user_action) {
+              issues.steps.push(`Use Case "${uc.title}", Шаг ${step.step_number}: Нет действия пользователя`);
+            }
+            if (!step.system_response) {
+              issues.steps.push(`Use Case "${uc.title}", Шаг ${step.step_number}: Нет ответа системы`);
+            }
+            if (!step.api_endpoint) {
+              issues.steps.push(`Use Case "${uc.title}", Шаг ${step.step_number}: Не привязан API endpoint`);
+            }
+          });
+        }
+      });
+    }
+
+    issues.overall = issues.basic.length + issues.useCases.length + issues.steps.length;
+
+    setCompletenessReport(issues);
+    setIsCompletenessDialogOpen(true);
   };
 
   const filteredStories = userStories.filter(story => {
@@ -1751,7 +1806,7 @@ export default function Index() {
                           <Icon name="Copy" size={16} className="mr-2" />
                           Копировать документ
                         </Button>
-                        <Button variant="outline">
+                        <Button variant="outline" onClick={checkCompleteness}>
                           <Icon name="CheckCircle" size={16} className="mr-2" />
                           Проверить полноту
                         </Button>
@@ -1774,6 +1829,121 @@ export default function Index() {
                         </Button>
                       </div>
                     </DialogContent>
+                    </Dialog>
+
+                    <Dialog open={isCompletenessDialogOpen} onOpenChange={setIsCompletenessDialogOpen}>
+                      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                        <DialogHeader>
+                          <DialogTitle className="text-2xl flex items-center gap-3">
+                            {completenessReport && completenessReport.overall === 0 ? (
+                              <Icon name="CheckCircle2" size={28} className="text-green-400" />
+                            ) : (
+                              <Icon name="AlertCircle" size={28} className="text-yellow-400" />
+                            )}
+                            Проверка полноты User Story
+                          </DialogTitle>
+                        </DialogHeader>
+
+                        {completenessReport && (
+                          <div className="space-y-6 py-4">
+                            {completenessReport.overall === 0 ? (
+                              <Card className="p-6 bg-green-500/10 border-green-500/30">
+                                <div className="flex items-center gap-3 mb-3">
+                                  <Icon name="CheckCircle2" size={32} className="text-green-400" />
+                                  <div>
+                                    <h3 className="font-semibold text-lg">Отлично! User Story полностью заполнена</h3>
+                                    <p className="text-sm text-muted-foreground">Все необходимые поля заполнены, можно сохранять</p>
+                                  </div>
+                                </div>
+                                <div className="space-y-2 text-sm">
+                                  <div className="flex items-center gap-2">
+                                    <Icon name="Check" size={16} className="text-green-400" />
+                                    <span>Основные данные заполнены</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Icon name="Check" size={16} className="text-green-400" />
+                                    <span>Use Cases: {useCases.length} шт.</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Icon name="Check" size={16} className="text-green-400" />
+                                    <span>Шаги действий: {useCaseSteps.length} шт.</span>
+                                  </div>
+                                </div>
+                              </Card>
+                            ) : (
+                              <div className="space-y-4">
+                                <Card className="p-4 bg-yellow-500/10 border-yellow-500/30">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Icon name="AlertTriangle" size={20} className="text-yellow-400" />
+                                    <h3 className="font-semibold">Найдено проблем: {completenessReport.overall}</h3>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground">Рекомендуется заполнить указанные поля для полноты документации</p>
+                                </Card>
+
+                                {completenessReport.basic.length > 0 && (
+                                  <Card className="p-4">
+                                    <h4 className="font-semibold mb-3 flex items-center gap-2">
+                                      <Icon name="User" size={18} className="text-purple-400" />
+                                      Основные данные ({completenessReport.basic.length})
+                                    </h4>
+                                    <ul className="space-y-2">
+                                      {completenessReport.basic.map((issue: string, idx: number) => (
+                                        <li key={idx} className="flex items-start gap-2 text-sm">
+                                          <Icon name="X" size={16} className="text-red-400 mt-0.5 flex-shrink-0" />
+                                          <span>{issue}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </Card>
+                                )}
+
+                                {completenessReport.useCases.length > 0 && (
+                                  <Card className="p-4">
+                                    <h4 className="font-semibold mb-3 flex items-center gap-2">
+                                      <Icon name="ListChecks" size={18} className="text-blue-400" />
+                                      Use Cases ({completenessReport.useCases.length})
+                                    </h4>
+                                    <ul className="space-y-2">
+                                      {completenessReport.useCases.map((issue: string, idx: number) => (
+                                        <li key={idx} className="flex items-start gap-2 text-sm">
+                                          <Icon name="X" size={16} className="text-red-400 mt-0.5 flex-shrink-0" />
+                                          <span>{issue}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </Card>
+                                )}
+
+                                {completenessReport.steps.length > 0 && (
+                                  <Card className="p-4">
+                                    <h4 className="font-semibold mb-3 flex items-center gap-2">
+                                      <Icon name="Table" size={18} className="text-green-400" />
+                                      Шаги действий ({completenessReport.steps.length})
+                                    </h4>
+                                    <ul className="space-y-2 max-h-60 overflow-y-auto">
+                                      {completenessReport.steps.map((issue: string, idx: number) => (
+                                        <li key={idx} className="flex items-start gap-2 text-sm">
+                                          <Icon name="X" size={16} className="text-red-400 mt-0.5 flex-shrink-0" />
+                                          <span>{issue}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </Card>
+                                )}
+                              </div>
+                            )}
+
+                            <div className="flex gap-3 pt-4 border-t">
+                              <Button 
+                                className="flex-1"
+                                onClick={() => setIsCompletenessDialogOpen(false)}
+                              >
+                                {completenessReport.overall === 0 ? 'Отлично!' : 'Понятно, буду заполнять'}
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </DialogContent>
                     </Dialog>
                   </div>
                 </div>
