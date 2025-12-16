@@ -629,6 +629,45 @@ export default function Index() {
     URL.revokeObjectURL(url);
   };
 
+  const calculateCompleteness = (): number => {
+    let total = 0;
+    let filled = 0;
+
+    // Основные данные (4 поля)
+    total += 4;
+    if (newStory.role) filled++;
+    if (newStory.action) filled++;
+    if (newStory.benefit) filled++;
+    if (newStory.epic) filled++;
+
+    // Use Cases (минимум 1)
+    total += 1;
+    if (useCases.length > 0) filled++;
+
+    // Для каждого Use Case
+    useCases.forEach(uc => {
+      total += 3; // title, preconditions, postconditions
+      if (uc.title) filled++;
+      if (uc.preconditions.some(p => p.trim())) filled++;
+      if (uc.postconditions.some(p => p.trim())) filled++;
+
+      // Шаги (минимум 1 на Use Case)
+      const steps = useCaseSteps.filter(s => s.use_case_id === uc.id);
+      total += 1;
+      if (steps.length > 0) filled++;
+
+      // Для каждого шага
+      steps.forEach(step => {
+        total += 3; // user_action, system_response, api_endpoint
+        if (step.user_action) filled++;
+        if (step.system_response) filled++;
+        if (step.api_endpoint) filled++;
+      });
+    });
+
+    return total > 0 ? Math.round((filled / total) * 100) : 0;
+  };
+
   const checkCompleteness = () => {
     const issues: any = {
       basic: [],
@@ -998,7 +1037,73 @@ export default function Index() {
                       </DialogTrigger>
                     <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
                       <DialogHeader>
-                        <DialogTitle className="text-2xl">Создание User Story с Use Cases</DialogTitle>
+                        <DialogTitle className="text-2xl flex items-center justify-between">
+                          <span>Создание User Story с Use Cases</span>
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2">
+                              <div className="relative w-16 h-16">
+                                <svg className="transform -rotate-90 w-16 h-16">
+                                  <circle
+                                    cx="32"
+                                    cy="32"
+                                    r="28"
+                                    stroke="currentColor"
+                                    strokeWidth="6"
+                                    fill="none"
+                                    className="text-muted/30"
+                                  />
+                                  <circle
+                                    cx="32"
+                                    cy="32"
+                                    r="28"
+                                    stroke="currentColor"
+                                    strokeWidth="6"
+                                    fill="none"
+                                    strokeDasharray={`${2 * Math.PI * 28}`}
+                                    strokeDashoffset={`${2 * Math.PI * 28 * (1 - calculateCompleteness() / 100)}`}
+                                    className={`transition-all duration-500 ${
+                                      calculateCompleteness() === 100
+                                        ? 'text-green-400'
+                                        : calculateCompleteness() >= 70
+                                        ? 'text-blue-400'
+                                        : calculateCompleteness() >= 40
+                                        ? 'text-yellow-400'
+                                        : 'text-red-400'
+                                    }`}
+                                    strokeLinecap="round"
+                                  />
+                                </svg>
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <span className={`text-sm font-bold ${
+                                    calculateCompleteness() === 100
+                                      ? 'text-green-400'
+                                      : calculateCompleteness() >= 70
+                                      ? 'text-blue-400'
+                                      : calculateCompleteness() >= 40
+                                      ? 'text-yellow-400'
+                                      : 'text-red-400'
+                                  }`}>
+                                    {calculateCompleteness()}%
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="text-left">
+                                <p className="text-xs text-muted-foreground">Заполнено</p>
+                                <p className="text-sm font-semibold">
+                                  {calculateCompleteness() === 100 ? (
+                                    <span className="text-green-400">Готово ✓</span>
+                                  ) : calculateCompleteness() >= 70 ? (
+                                    <span className="text-blue-400">Почти готово</span>
+                                  ) : calculateCompleteness() >= 40 ? (
+                                    <span className="text-yellow-400">В процессе</span>
+                                  ) : (
+                                    <span className="text-red-400">Начните заполнение</span>
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </DialogTitle>
                       </DialogHeader>
                       
                       <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
