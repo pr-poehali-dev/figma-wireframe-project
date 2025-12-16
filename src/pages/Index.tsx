@@ -139,6 +139,18 @@ export default function Index() {
   const [okrs, setOkrs] = useState<OKR[]>([]);
   const [isOkrDialogOpen, setIsOkrDialogOpen] = useState(false);
   const [newOkr, setNewOkr] = useState({ objective: '', key_results: ['', '', ''] });
+  const [apiEndpoints, setApiEndpoints] = useState<string[]>([
+    'POST /api/cart/add',
+    'DELETE /api/cart/remove',
+    'GET /api/cart',
+    'POST /api/orders/create',
+    'GET /api/products',
+    'POST /api/auth/login',
+    'GET /api/user/profile'
+  ]);
+  const [isAddEndpointDialogOpen, setIsAddEndpointDialogOpen] = useState(false);
+  const [newEndpoint, setNewEndpoint] = useState({ method: 'GET', path: '' });
+  const [editingStepId, setEditingStepId] = useState<number | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -1015,18 +1027,48 @@ export default function Index() {
                                                   </td>
                                                   <td className="p-2">
                                                     <div className="flex items-center gap-1">
-                                                      <Input 
-                                                        placeholder="POST /api/cart"
-                                                        value={step.api_endpoint}
-                                                        onChange={(e) => {
-                                                          setUseCaseSteps(prev => prev.map(s => 
-                                                            s.id === step.id ? {...s, api_endpoint: e.target.value} : s
-                                                          ));
-                                                        }}
-                                                        className="h-8 text-xs font-mono flex-1"
-                                                      />
-                                                      {step.api_endpoint && (
-                                                        <Icon name="CheckCircle2" size={16} className="text-green-400" />
+                                                      {editingStepId === step.id ? (
+                                                        <div className="flex-1 flex flex-col gap-1">
+                                                          <Select 
+                                                            value={step.api_endpoint}
+                                                            onValueChange={(value) => {
+                                                              if (value === '__new__') {
+                                                                setIsAddEndpointDialogOpen(true);
+                                                              } else {
+                                                                setUseCaseSteps(prev => prev.map(s => 
+                                                                  s.id === step.id ? {...s, api_endpoint: value} : s
+                                                                ));
+                                                                setEditingStepId(null);
+                                                              }
+                                                            }}
+                                                          >
+                                                            <SelectTrigger className="h-8 text-xs font-mono">
+                                                              <SelectValue placeholder="Выберите endpoint" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                              {apiEndpoints.map(endpoint => (
+                                                                <SelectItem key={endpoint} value={endpoint} className="text-xs font-mono">
+                                                                  {endpoint}
+                                                                </SelectItem>
+                                                              ))}
+                                                              <SelectItem value="__new__" className="text-xs text-purple-400">
+                                                                + Создать новый endpoint
+                                                              </SelectItem>
+                                                            </SelectContent>
+                                                          </Select>
+                                                        </div>
+                                                      ) : (
+                                                        <>
+                                                          <button
+                                                            onClick={() => setEditingStepId(step.id)}
+                                                            className="flex-1 h-8 px-2 text-xs font-mono text-left border border-input rounded-md bg-background hover:bg-accent transition-colors"
+                                                          >
+                                                            {step.api_endpoint || 'Выбрать endpoint...'}
+                                                          </button>
+                                                          {step.api_endpoint && (
+                                                            <Icon name="CheckCircle2" size={16} className="text-green-400" />
+                                                          )}
+                                                        </>
                                                       )}
                                                     </div>
                                                   </td>
@@ -1170,6 +1212,73 @@ export default function Index() {
                                     Создать
                                   </Button>
                                   <Button variant="outline" className="flex-1" onClick={() => setIsUseCaseDialogOpen(false)}>
+                                    Отмена
+                                  </Button>
+                                </div>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+
+                          <Dialog open={isAddEndpointDialogOpen} onOpenChange={setIsAddEndpointDialogOpen}>
+                            <DialogContent className="max-w-md">
+                              <DialogHeader>
+                                <DialogTitle>Создать новый API Endpoint</DialogTitle>
+                              </DialogHeader>
+                              <div className="space-y-4 py-4">
+                                <div>
+                                  <Label>HTTP Метод</Label>
+                                  <Select value={newEndpoint.method} onValueChange={(value) => setNewEndpoint(prev => ({...prev, method: value}))}>
+                                    <SelectTrigger>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="GET">GET</SelectItem>
+                                      <SelectItem value="POST">POST</SelectItem>
+                                      <SelectItem value="PUT">PUT</SelectItem>
+                                      <SelectItem value="DELETE">DELETE</SelectItem>
+                                      <SelectItem value="PATCH">PATCH</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                <div>
+                                  <Label>Путь</Label>
+                                  <Input 
+                                    placeholder="/api/resource"
+                                    value={newEndpoint.path}
+                                    onChange={(e) => setNewEndpoint(prev => ({...prev, path: e.target.value}))}
+                                    className="font-mono text-sm"
+                                  />
+                                </div>
+
+                                <div className="p-3 bg-muted/30 rounded-lg border border-border">
+                                  <p className="text-xs text-muted-foreground mb-1">Результат:</p>
+                                  <p className="font-mono text-sm font-semibold">{newEndpoint.method} {newEndpoint.path || '/api/...'}</p>
+                                </div>
+
+                                <div className="flex gap-3">
+                                  <Button 
+                                    className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600"
+                                    onClick={() => {
+                                      const fullEndpoint = `${newEndpoint.method} ${newEndpoint.path}`;
+                                      setApiEndpoints(prev => [...prev, fullEndpoint]);
+                                      if (editingStepId) {
+                                        setUseCaseSteps(prev => prev.map(s => 
+                                          s.id === editingStepId ? {...s, api_endpoint: fullEndpoint} : s
+                                        ));
+                                        setEditingStepId(null);
+                                      }
+                                      setNewEndpoint({method: 'GET', path: ''});
+                                      setIsAddEndpointDialogOpen(false);
+                                    }}
+                                    disabled={!newEndpoint.path.trim()}
+                                  >
+                                    Создать и привязать
+                                  </Button>
+                                  <Button variant="outline" className="flex-1" onClick={() => {
+                                    setIsAddEndpointDialogOpen(false);
+                                    setNewEndpoint({method: 'GET', path: ''});
+                                  }}>
                                     Отмена
                                   </Button>
                                 </div>
