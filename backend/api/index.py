@@ -33,7 +33,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'statusCode': 200,
             'headers': {
                 'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type',
                 'Access-Control-Max-Age': '86400'
             },
@@ -120,6 +120,43 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'statusCode': 201,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                 'body': json.dumps(dict(new_okr), default=str),
+                'isBase64Encoded': False
+            }
+        
+        elif method == 'PUT' and action == 'okrs':
+            data = json.loads(event.get('body', '{}'))
+            cur.execute('''
+                UPDATE project_okrs
+                SET objective = %s, key_results = %s, updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s AND project_id = 1
+                RETURNING id, objective, key_results, updated_at
+            ''', (data['objective'], json.dumps(data['key_results']), data['id']))
+            
+            updated_okr = cur.fetchone()
+            conn.commit()
+            
+            return {
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps(dict(updated_okr) if updated_okr else {}, default=str),
+                'isBase64Encoded': False
+            }
+        
+        elif method == 'DELETE' and action == 'okrs':
+            okr_id = params.get('id')
+            cur.execute('''
+                DELETE FROM project_okrs
+                WHERE id = %s AND project_id = 1
+                RETURNING id
+            ''', (okr_id,))
+            
+            deleted_okr = cur.fetchone()
+            conn.commit()
+            
+            return {
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'success': True, 'id': dict(deleted_okr)['id'] if deleted_okr else None}, default=str),
                 'isBase64Encoded': False
             }
         

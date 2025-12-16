@@ -89,6 +89,8 @@ export default function Index() {
     success_metric: '1000+'
   });
   const [okrs, setOkrs] = useState<OKR[]>([]);
+  const [isOkrDialogOpen, setIsOkrDialogOpen] = useState(false);
+  const [newOkr, setNewOkr] = useState({ objective: '', key_results: ['', '', ''] });
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -97,6 +99,15 @@ export default function Index() {
     loadUserStories();
     loadArchElements();
   }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (visionData.vision || visionData.target_audience || visionData.value_proposition) {
+        saveVisionData();
+      }
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [visionData]);
 
   useEffect(() => {
     if (selectedStoryId) {
@@ -277,6 +288,64 @@ export default function Index() {
     }
   };
 
+  const createOkr = async () => {
+    const filteredKeyResults = newOkr.key_results.filter(kr => kr.trim() !== '');
+    if (!newOkr.objective || filteredKeyResults.length === 0) return;
+
+    try {
+      const response = await fetch(`${API_URL}?action=okrs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          objective: newOkr.objective, 
+          key_results: filteredKeyResults 
+        }),
+      });
+      const createdOkr = await response.json();
+      setOkrs(prev => [...prev, createdOkr]);
+      setNewOkr({ objective: '', key_results: ['', '', ''] });
+      setIsOkrDialogOpen(false);
+    } catch (error) {
+      console.error('Error creating OKR:', error);
+    }
+  };
+
+  const updateOkrInline = (id: number, field: 'objective' | number, value: string) => {
+    setOkrs(prev => prev.map(okr => {
+      if (okr.id !== id) return okr;
+      if (field === 'objective') {
+        return { ...okr, objective: value };
+      } else {
+        const newKeyResults = [...okr.key_results];
+        newKeyResults[field] = value;
+        return { ...okr, key_results: newKeyResults };
+      }
+    }));
+  };
+
+  const saveOkrChanges = async (okr: OKR) => {
+    try {
+      await fetch(`${API_URL}?action=okrs`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: okr.id, objective: okr.objective, key_results: okr.key_results }),
+      });
+    } catch (error) {
+      console.error('Error updating OKR:', error);
+    }
+  };
+
+  const deleteOkr = async (id: number) => {
+    try {
+      await fetch(`${API_URL}?action=okrs&id=${id}`, {
+        method: 'DELETE',
+      });
+      setOkrs(prev => prev.filter(okr => okr.id !== id));
+    } catch (error) {
+      console.error('Error deleting OKR:', error);
+    }
+  };
+
   const filteredStories = userStories.filter(story => {
     if (filterPriority !== 'all' && story.priority !== filterPriority) return false;
     if (filterEpic !== 'all' && story.epic !== filterEpic) return false;
@@ -427,24 +496,87 @@ export default function Index() {
                         </div>
                         <h3 className="text-lg font-semibold">Ключевые цели (OKR)</h3>
                       </div>
-                      <Button variant="outline" size="sm">
-                        <Icon name="Plus" size={16} className="mr-2" />
-                        Добавить цель
-                      </Button>
+                      <Dialog open={isOkrDialogOpen} onOpenChange={setIsOkrDialogOpen}>
+                        <DialogTrigger asChild>
+                          <Button variant="outline" size="sm">
+                            <Icon name="Plus" size={16} className="mr-2" />
+                            Добавить цель
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-2xl">
+                          <DialogHeader>
+                            <DialogTitle>Новая OKR цель</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                              <Label>Objective (Цель)</Label>
+                              <Input 
+                                placeholder="Например: Запустить MVP продукта"
+                                value={newOkr.objective}
+                                onChange={(e) => setNewOkr(prev => ({ ...prev, objective: e.target.value }))}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Key Results (Ключевые результаты)</Label>
+                              {newOkr.key_results.map((kr, idx) => (
+                                <Input 
+                                  key={idx}
+                                  placeholder={`Key Result ${idx + 1}`}
+                                  value={kr}
+                                  onChange={(e) => {
+                                    const newKeyResults = [...newOkr.key_results];
+                                    newKeyResults[idx] = e.target.value;
+                                    setNewOkr(prev => ({ ...prev, key_results: newKeyResults }));
+                                  }}
+                                />
+                              ))}
+                            </div>
+                            <div className="flex gap-3 pt-4">
+                              <Button 
+                                className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600"
+                                onClick={createOkr}
+                              >
+                                Создать
+                              </Button>
+                              <Button variant="outline" className="flex-1" onClick={() => setIsOkrDialogOpen(false)}>
+                                Отмена
+                              </Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
                     </div>
                     
                     <div className="space-y-4">
                       {okrs.map((okr) => (
-                        <div key={okr.id} className="border border-border rounded-lg p-4 bg-muted/20">
+                        <div key={okr.id} className="border border-border rounded-lg p-4 bg-muted/20 group relative">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => deleteOkr(okr.id)}
+                          >
+                            <Icon name="Trash2" size={16} className="text-destructive" />
+                          </Button>
                           <div className="flex items-center gap-2 mb-3">
                             <Icon name="Flag" size={18} className="text-yellow-400" />
-                            <span className="font-semibold">{okr.objective}</span>
+                            <Input
+                              className="font-semibold bg-transparent border-none p-0 h-auto focus-visible:ring-0 flex-1"
+                              value={okr.objective}
+                              onChange={(e) => updateOkrInline(okr.id, 'objective', e.target.value)}
+                              onBlur={() => saveOkrChanges(okr)}
+                            />
                           </div>
                           <div className="space-y-2 ml-6">
                             {okr.key_results.map((kr, krIdx) => (
                               <div key={krIdx} className="flex items-center gap-2">
                                 <Icon name="CircleDot" size={14} className="text-blue-400" />
-                                <span className="text-sm">{kr}</span>
+                                <Input
+                                  className="text-sm bg-transparent border-none p-0 h-auto focus-visible:ring-0 flex-1"
+                                  value={kr}
+                                  onChange={(e) => updateOkrInline(okr.id, krIdx, e.target.value)}
+                                  onBlur={() => saveOkrChanges(okr)}
+                                />
                               </div>
                             ))}
                           </div>
