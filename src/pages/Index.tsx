@@ -153,6 +153,8 @@ export default function Index() {
   const [editingStepId, setEditingStepId] = useState<number | null>(null);
   const [isCompletenessDialogOpen, setIsCompletenessDialogOpen] = useState(false);
   const [completenessReport, setCompletenessReport] = useState<any>(null);
+  const [viewingStoryId, setViewingStoryId] = useState<number | null>(null);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
   const draftTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -1074,7 +1076,7 @@ export default function Index() {
                       <DialogTrigger asChild>
                         <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90">
                           <Icon name="Plus" size={18} className="mr-2" />
-                          Создать User Story
+                          Создать требование
                         </Button>
                       </DialogTrigger>
                     <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
@@ -2126,6 +2128,184 @@ export default function Index() {
                         )}
                       </DialogContent>
                     </Dialog>
+
+                    <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+                      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+                        <DialogHeader>
+                          <DialogTitle className="text-2xl flex items-center gap-3">
+                            <Icon name="FileText" size={28} className="text-purple-400" />
+                            Документация требования
+                          </DialogTitle>
+                        </DialogHeader>
+                        
+                        {viewingStoryId && (() => {
+                          const story = userStories.find(s => s.id === viewingStoryId);
+                          if (!story) return null;
+
+                          return (
+                            <div className="space-y-6 py-4">
+                              <Card className="p-6 bg-gradient-to-br from-purple-500/10 to-blue-500/10 border-purple-500/30">
+                                <div className="flex items-center gap-3 mb-4">
+                                  <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
+                                    <Icon name="User" size={24} className="text-white" />
+                                  </div>
+                                  <div className="flex-1">
+                                    <h3 className="text-xl font-bold">Как {story.role}</h3>
+                                    <p className="text-sm text-muted-foreground">ID: #{story.id}</p>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <Badge variant="outline" className="text-sm">
+                                      {story.priority}
+                                    </Badge>
+                                    {story.epic && (
+                                      <Badge className="text-sm bg-purple-500/20 text-purple-400">
+                                        {story.epic}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                                
+                                <div className="space-y-3">
+                                  <div>
+                                    <p className="text-sm text-muted-foreground mb-1">Я хочу:</p>
+                                    <p className="text-base font-medium">{story.action}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-sm text-muted-foreground mb-1">Чтобы:</p>
+                                    <p className="text-base font-medium">{story.benefit}</p>
+                                  </div>
+                                </div>
+
+                                {(story.business_value || story.story_points) && (
+                                  <div className="flex gap-4 mt-4 pt-4 border-t border-border">
+                                    {story.business_value && (
+                                      <div className="flex items-center gap-2">
+                                        <Icon name="TrendingUp" size={18} className="text-green-400" />
+                                        <span className="text-sm">Бизнес-ценность: <span className="font-bold">{story.business_value}/10</span></span>
+                                      </div>
+                                    )}
+                                    {story.story_points && (
+                                      <div className="flex items-center gap-2">
+                                        <Icon name="Zap" size={18} className="text-yellow-400" />
+                                        <span className="text-sm">Story Points: <span className="font-bold">{story.story_points}</span></span>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </Card>
+
+                              <Card className="p-6">
+                                <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                                  <Icon name="ListChecks" size={20} className="text-blue-400" />
+                                  Use Cases
+                                </h3>
+                                <p className="text-sm text-muted-foreground">Подробные сценарии использования для данного требования</p>
+                                <div className="mt-4 p-4 bg-muted/20 rounded-lg text-center text-sm text-muted-foreground">
+                                  <Icon name="Construction" size={32} className="mx-auto mb-2 opacity-50" />
+                                  Use Cases будут отображаться после сохранения в базу данных
+                                </div>
+                              </Card>
+
+                              <Card className="p-6">
+                                <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                                  <Icon name="Network" size={20} className="text-purple-400" />
+                                  Sequence Диаграмма
+                                </h3>
+                                <p className="text-sm text-muted-foreground">Визуализация последовательности взаимодействий</p>
+                                <div className="mt-4 p-4 bg-muted/20 rounded-lg text-center text-sm text-muted-foreground">
+                                  <Icon name="Construction" size={32} className="mx-auto mb-2 opacity-50" />
+                                  Диаграммы будут доступны после привязки Use Cases
+                                </div>
+                              </Card>
+
+                              <Card className="p-6">
+                                <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                                  <Icon name="FileCheck" size={20} className="text-green-400" />
+                                  Критерии приемки (Gherkin)
+                                </h3>
+                                <p className="text-sm text-muted-foreground">BDD сценарии для тестирования</p>
+                                <div className="mt-4 p-4 bg-muted/20 rounded-lg text-center text-sm text-muted-foreground">
+                                  <Icon name="Construction" size={32} className="mx-auto mb-2 opacity-50" />
+                                  Gherkin сценарии будут сгенерированы из Use Cases
+                                </div>
+                              </Card>
+
+                              <Card className="p-6 bg-muted/20">
+                                <div className="flex items-center justify-between mb-4">
+                                  <h3 className="font-semibold text-lg flex items-center gap-2">
+                                    <Icon name="MessageSquare" size={20} className="text-orange-400" />
+                                    Комментарии
+                                  </h3>
+                                  <Badge variant="outline">
+                                    {comments[story.id]?.length || 0}
+                                  </Badge>
+                                </div>
+                                
+                                {comments[story.id] && comments[story.id].length > 0 ? (
+                                  <div className="space-y-3 mb-4">
+                                    {comments[story.id].map((comment) => (
+                                      <div key={comment.id} className="bg-background p-4 rounded-lg border border-border">
+                                        <div className="flex items-center justify-between mb-2">
+                                          <span className="font-semibold text-sm">{comment.author}</span>
+                                          <span className="text-xs text-muted-foreground">
+                                            {new Date(comment.timestamp).toLocaleDateString('ru-RU')}
+                                          </span>
+                                        </div>
+                                        <p className="text-sm">{comment.text}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-muted-foreground mb-4">Комментариев пока нет</p>
+                                )}
+
+                                <div className="flex gap-2">
+                                  <Input 
+                                    placeholder="Добавить комментарий..."
+                                    value={selectedStoryId === story.id ? newComment : ''}
+                                    onChange={(e) => {
+                                      setSelectedStoryId(story.id);
+                                      setNewComment(e.target.value);
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        addComment(story.id);
+                                      }
+                                    }}
+                                  />
+                                  <Button 
+                                    size="sm"
+                                    onClick={() => addComment(story.id)}
+                                    disabled={!newComment.trim()}
+                                  >
+                                    <Icon name="Send" size={16} />
+                                  </Button>
+                                </div>
+                              </Card>
+
+                              <div className="flex gap-3 pt-4 border-t">
+                                <Button variant="outline" onClick={() => {
+                                  const markdown = `# Требование: ${story.role} - ${story.action}\n\n**ID:** #${story.id}\n**Приоритет:** ${story.priority}\n**Epic:** ${story.epic || 'Не указан'}\n\n## Описание\n\n**Как:** ${story.role}\n\n**Я хочу:** ${story.action}\n\n**Чтобы:** ${story.benefit}\n\n---\n\n*Документ сгенерирован из Архитектор*`;
+                                  navigator.clipboard.writeText(markdown);
+                                }}>  
+                                  <Icon name="Copy" size={16} className="mr-2" />
+                                  Копировать Markdown
+                                </Button>
+                                <Button variant="outline">
+                                  <Icon name="Edit" size={16} className="mr-2" />
+                                  Редактировать
+                                </Button>
+                                <div className="flex-1" />
+                                <Button onClick={() => setIsViewDialogOpen(false)}>
+                                  Закрыть
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </DialogContent>
+                    </Dialog>
                   </div>
                 </div>
 
@@ -2141,7 +2321,14 @@ export default function Index() {
                     </Card>
                   ) : (
                     filteredStories.map((story) => (
-                    <Card key={story.id} className="p-6 hover-scale transition-all">
+                    <Card 
+                      key={story.id} 
+                      className="p-6 hover-scale transition-all cursor-pointer group"
+                      onClick={() => {
+                        setViewingStoryId(story.id);
+                        setIsViewDialogOpen(true);
+                      }}
+                    >
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
