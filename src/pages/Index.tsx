@@ -333,13 +333,14 @@ export default function Index() {
                         ))}
                       </SelectContent>
                     </Select>
-                  <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90">
-                        <Icon name="Plus" size={18} className="mr-2" />
-                        Создать User Story
-                      </Button>
-                    </DialogTrigger>
+                    
+                    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90">
+                          <Icon name="Plus" size={18} className="mr-2" />
+                          Создать User Story
+                        </Button>
+                      </DialogTrigger>
                     <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                       <DialogHeader>
                         <DialogTitle className="text-2xl">Новая User Story</DialogTitle>
@@ -442,7 +443,8 @@ export default function Index() {
                         </div>
                       </div>
                     </DialogContent>
-                  </Dialog>
+                    </Dialog>
+                  </div>
                 </div>
 
                 <div className="mb-4 text-sm text-muted-foreground">
