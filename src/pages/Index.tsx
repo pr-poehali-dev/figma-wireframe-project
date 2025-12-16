@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -20,23 +20,161 @@ const stages = [
   { id: 5, name: 'Документация', icon: 'BookOpen', color: 'text-orange-400' },
 ];
 
-const mockUserStories = [
-  { id: 1, role: 'Product Manager', action: 'создать User Story', benefit: 'управлять требованиями', priority: 'Must', epic: 'Управление требованиями' },
-  { id: 2, role: 'Architect', action: 'построить C4 диаграмму', benefit: 'визуализировать архитектуру', priority: 'Should', epic: 'Архитектура системы' },
-  { id: 3, role: 'Developer', action: 'просмотреть API эндпоинты', benefit: 'понимать интерфейсы', priority: 'Must', epic: 'API Design' },
-];
+const API_URL = 'https://functions.poehali.dev/6db0a9fb-acd7-4567-b47a-1faad9a0ae24';
 
-const architectureElements = [
-  { id: 1, type: 'Пользователь', name: 'Web Client', x: 50, y: 100 },
-  { id: 2, type: 'Система', name: 'Project Platform', x: 250, y: 100 },
-  { id: 3, type: 'База данных', name: 'PostgreSQL', x: 250, y: 300 },
-  { id: 4, type: 'Внешняя система', name: 'Auth Service', x: 450, y: 100 },
-];
+interface UserStory {
+  id: number;
+  role: string;
+  action: string;
+  benefit: string;
+  priority: string;
+  epic: string;
+}
+
+interface ArchElement {
+  id: number;
+  type: string;
+  name: string;
+  x: number;
+  y: number;
+}
+
+interface Comment {
+  id: number;
+  author: string;
+  text: string;
+  timestamp: string;
+}
+
+
 
 export default function Index() {
   const [currentStage, setCurrentStage] = useState(2);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedCanvas, setSelectedCanvas] = useState('context');
+  const [userStories, setUserStories] = useState<UserStory[]>([]);
+  const [archElements, setArchElements] = useState<ArchElement[]>([]);
+  const [draggingId, setDraggingId] = useState<number | null>(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [selectedStoryId, setSelectedStoryId] = useState<number | null>(null);
+  const [comments, setComments] = useState<Record<number, Comment[]>>({});
+  const [newComment, setNewComment] = useState('');
+  const [loading, setLoading] = useState(true);
+  const canvasRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    loadUserStories();
+    loadArchElements();
+  }, []);
+
+  useEffect(() => {
+    if (selectedStoryId) {
+      loadComments(selectedStoryId);
+    }
+  }, [selectedStoryId]);
+
+  const loadUserStories = async () => {
+    try {
+      const response = await fetch(`${API_URL}?action=stories`);
+      const data = await response.json();
+      setUserStories(data);
+    } catch (error) {
+      console.error('Error loading stories:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadArchElements = async () => {
+    try {
+      const response = await fetch(`${API_URL}?action=arch-elements`);
+      const data = await response.json();
+      setArchElements(data);
+    } catch (error) {
+      console.error('Error loading arch elements:', error);
+    }
+  };
+
+  const loadComments = async (storyId: number) => {
+    try {
+      const response = await fetch(`${API_URL}?action=comments&story_id=${storyId}`);
+      const data = await response.json();
+      setComments(prev => ({ ...prev, [storyId]: data.map((c: any) => ({ ...c, timestamp: c.created_at })) }));
+    } catch (error) {
+      console.error('Error loading comments:', error);
+    }
+  };
+
+  const saveElementPosition = async (id: number, x: number, y: number) => {
+    try {
+      await fetch(`${API_URL}?action=arch-elements`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, x, y }),
+      });
+    } catch (error) {
+      console.error('Error saving position:', error);
+    }
+  };
+
+  const handleMouseDown = (e: React.MouseEvent, id: number) => {
+    const element = archElements.find(el => el.id === id);
+    if (!element) return;
+    
+    const rect = e.currentTarget.getBoundingClientRect();
+    setDragOffset({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    });
+    setDraggingId(id);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (draggingId === null || !canvasRef.current) return;
+    
+    const rect = canvasRef.current.getBoundingClientRect();
+    const newX = e.clientX - rect.left - dragOffset.x;
+    const newY = e.clientY - rect.top - dragOffset.y;
+    
+    setArchElements(prev => 
+      prev.map(el => 
+        el.id === draggingId 
+          ? { ...el, x: Math.max(0, Math.min(newX, rect.width - 160)), y: Math.max(0, Math.min(newY, rect.height - 100)) }
+          : el
+      )
+    );
+  };
+
+  const handleMouseUp = () => {
+    if (draggingId !== null) {
+      const element = archElements.find(el => el.id === draggingId);
+      if (element) {
+        saveElementPosition(element.id, element.x, element.y);
+      }
+    }
+    setDraggingId(null);
+  };
+
+  const addComment = async (storyId: number) => {
+    if (!newComment.trim()) return;
+    
+    try {
+      const response = await fetch(`${API_URL}?action=comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ story_id: storyId, author: 'Текущий пользователь', text: newComment }),
+      });
+      const newCommentData = await response.json();
+      
+      setComments(prev => ({
+        ...prev,
+        [storyId]: [...(prev[storyId] || []), { ...newCommentData, timestamp: newCommentData.created_at }],
+      }));
+      setNewComment('');
+    } catch (error) {
+      console.error('Error adding comment:', error);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -231,8 +369,14 @@ export default function Index() {
                 </div>
 
                 <div className="grid gap-4">
-                  {mockUserStories.map((story) => (
-                    <Card key={story.id} className="p-6 hover-scale cursor-pointer transition-all">
+                  {loading ? (
+                    <Card className="p-6 text-center text-muted-foreground">
+                      <Icon name="Loader2" size={24} className="animate-spin mx-auto mb-2" />
+                      Загрузка историй...
+                    </Card>
+                  ) : (
+                    userStories.map((story) => (
+                    <Card key={story.id} className="p-6 hover-scale transition-all">
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
@@ -249,12 +393,62 @@ export default function Index() {
                             Чтобы {story.benefit}
                           </p>
                         </div>
-                        <Button variant="ghost" size="icon">
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => setSelectedStoryId(selectedStoryId === story.id ? null : story.id)}
+                        >
                           <Icon name="MessageSquare" size={18} />
+                          {comments[story.id] && (
+                            <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                              {comments[story.id].length}
+                            </Badge>
+                          )}
                         </Button>
                       </div>
+                      
+                      {selectedStoryId === story.id && (
+                        <div className="mt-4 pt-4 border-t border-border animate-fade-in">
+                          <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                            <Icon name="MessageCircle" size={16} />
+                            Комментарии
+                          </h4>
+                          <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
+                            {comments[story.id]?.map((comment) => (
+                              <div key={comment.id} className="bg-muted/50 rounded-lg p-3">
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-sm font-medium">{comment.author}</span>
+                                  <span className="text-xs text-muted-foreground">{comment.timestamp}</span>
+                                </div>
+                                <p className="text-sm">{comment.text}</p>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex gap-2">
+                            <Input 
+                              placeholder="Добавить комментарий..."
+                              value={newComment}
+                              onChange={(e) => setNewComment(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault();
+                                  addComment(story.id);
+                                }
+                              }}
+                            />
+                            <Button 
+                              size="icon"
+                              onClick={() => addComment(story.id)}
+                              className="bg-gradient-to-r from-purple-600 to-blue-600"
+                            >
+                              <Icon name="Send" size={18} />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </Card>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
             )}
@@ -285,30 +479,71 @@ export default function Index() {
 
                 <div className="grid grid-cols-4 gap-6">
                   <Card className="col-span-3 p-6 min-h-[600px] bg-gradient-to-br from-card to-muted/20">
-                    <div className="relative h-full border-2 border-dashed border-border/50 rounded-lg p-8">
-                      {architectureElements.map((element) => (
+                    <div 
+                      ref={canvasRef}
+                      className="relative h-full border-2 border-dashed border-border/50 rounded-lg p-8"
+                      onMouseMove={handleMouseMove}
+                      onMouseUp={handleMouseUp}
+                      onMouseLeave={handleMouseUp}
+                    >
+                      {archElements.map((element) => (
                         <div
                           key={element.id}
-                          className="absolute bg-card border-2 border-purple-500/50 rounded-lg p-4 shadow-lg hover:shadow-purple-500/20 transition-all cursor-move hover-scale"
+                          className={`absolute bg-card border-2 rounded-lg p-4 shadow-lg transition-all cursor-move select-none ${
+                            draggingId === element.id 
+                              ? 'border-blue-500 shadow-blue-500/30 scale-105 z-50' 
+                              : 'border-purple-500/50 hover:shadow-purple-500/20 hover-scale'
+                          }`}
                           style={{ left: element.x, top: element.y, width: '160px' }}
+                          onMouseDown={(e) => handleMouseDown(e, element.id)}
                         >
-                          <div className="flex items-center gap-2 mb-2">
+                          <div className="flex items-center gap-2 mb-2 pointer-events-none">
                             <Icon name={element.type === 'Пользователь' ? 'User' : element.type === 'Система' ? 'Box' : element.type === 'База данных' ? 'Database' : 'Globe'} size={20} className="text-purple-400" />
                             <span className="text-xs text-muted-foreground">{element.type}</span>
                           </div>
-                          <h4 className="font-semibold">{element.name}</h4>
+                          <h4 className="font-semibold pointer-events-none">{element.name}</h4>
                         </div>
                       ))}
                       
                       <svg className="absolute inset-0 pointer-events-none">
                         <defs>
                           <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                            <polygon points="0 0, 10 3.5, 0 7" fill="hsl(var(--purple))" />
+                            <polygon points="0 0, 10 3.5, 0 7" fill="hsl(262 83% 58%)" />
                           </marker>
                         </defs>
-                        <line x1="130" y1="120" x2="250" y2="120" stroke="hsl(var(--purple))" strokeWidth="2" markerEnd="url(#arrowhead)" />
-                        <line x1="330" y1="140" x2="330" y2="300" stroke="hsl(var(--purple))" strokeWidth="2" markerEnd="url(#arrowhead)" />
-                        <line x1="370" y1="120" x2="450" y2="120" stroke="hsl(var(--purple))" strokeWidth="2" markerEnd="url(#arrowhead)" />
+                        {archElements.length >= 2 && (
+                          <line 
+                            x1={archElements[0].x + 160} 
+                            y1={archElements[0].y + 50} 
+                            x2={archElements[1].x} 
+                            y2={archElements[1].y + 50} 
+                            stroke="hsl(262 83% 58%)" 
+                            strokeWidth="2" 
+                            markerEnd="url(#arrowhead)" 
+                          />
+                        )}
+                        {archElements.length >= 3 && (
+                          <line 
+                            x1={archElements[1].x + 80} 
+                            y1={archElements[1].y + 100} 
+                            x2={archElements[2].x + 80} 
+                            y2={archElements[2].y} 
+                            stroke="hsl(262 83% 58%)" 
+                            strokeWidth="2" 
+                            markerEnd="url(#arrowhead)" 
+                          />
+                        )}
+                        {archElements.length >= 4 && (
+                          <line 
+                            x1={archElements[1].x + 160} 
+                            y1={archElements[1].y + 50} 
+                            x2={archElements[3].x} 
+                            y2={archElements[3].y + 50} 
+                            stroke="hsl(262 83% 58%)" 
+                            strokeWidth="2" 
+                            markerEnd="url(#arrowhead)" 
+                          />
+                        )}
                       </svg>
                     </div>
                   </Card>
