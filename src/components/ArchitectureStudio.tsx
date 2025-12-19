@@ -231,6 +231,8 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
   const [activeTab, setActiveTab] = useState('properties');
   const [zoom, setZoom] = useState(100);
   const [gridEnabled, setGridEnabled] = useState(true);
+  const [snapToGrid, setSnapToGrid] = useState(true);
+  const GRID_SIZE = 20;
   const [draggingElement, setDraggingElement] = useState<number | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [showConnectionLines, setShowConnectionLines] = useState(true);
@@ -271,6 +273,8 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
   const [newGroupLayer, setNewGroupLayer] = useState<'presentation' | 'business' | 'data' | 'infrastructure' | undefined>(undefined);
   const [drillDownPath, setDrillDownPath] = useState<string[]>([]);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartPos = useRef({ x: 0, y: 0 });
 
   const handleElementClick = (element: ArchElement, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -300,10 +304,15 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
     const element = archElements.find(el => el.id === elementId);
     if (!element) return;
     
-    const rect = e.currentTarget.getBoundingClientRect();
+    if (!canvasRef.current) return;
+    const canvasRect = canvasRef.current.getBoundingClientRect();
+    const scaledX = (e.clientX - canvasRect.left) / (zoom / 100);
+    const scaledY = (e.clientY - canvasRect.top) / (zoom / 100);
+    
+    dragStartPos.current = { x: e.clientX, y: e.clientY };
     setDragOffset({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
+      x: scaledX - element.x,
+      y: scaledY - element.y,
     });
     setDraggingElement(elementId);
   };
@@ -312,25 +321,39 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
     if (!canvasRef.current) return;
     
     const rect = canvasRef.current.getBoundingClientRect();
-    const mouseX = (e.clientX - rect.left) / (zoom / 100);
-    const mouseY = (e.clientY - rect.top) / (zoom / 100);
+    const scaledX = (e.clientX - rect.left) / (zoom / 100);
+    const scaledY = (e.clientY - rect.top) / (zoom / 100);
     
     if (draggingElement !== null) {
-      const newX = mouseX - dragOffset.x;
-      const newY = mouseY - dragOffset.y;
+      const dx = Math.abs(e.clientX - dragStartPos.current.x);
+      const dy = Math.abs(e.clientY - dragStartPos.current.y);
       
-      setArchElements(prev => 
-        prev.map(el => 
-          el.id === draggingElement 
-            ? { ...el, x: Math.max(0, Math.min(newX, 1200)), y: Math.max(0, Math.min(newY, 600)) }
-            : el
-        )
-      );
+      if (dx > 3 || dy > 3) {
+        setIsDragging(true);
+      }
+      
+      if (isDragging || dx > 3 || dy > 3) {
+        let newX = scaledX - dragOffset.x;
+        let newY = scaledY - dragOffset.y;
+        
+        if (snapToGrid) {
+          newX = Math.round(newX / GRID_SIZE) * GRID_SIZE;
+          newY = Math.round(newY / GRID_SIZE) * GRID_SIZE;
+        }
+        
+        setArchElements(prev => 
+          prev.map(el => 
+            el.id === draggingElement 
+              ? { ...el, x: Math.max(0, Math.min(newX, 1400)), y: Math.max(0, Math.min(newY, 700)) }
+              : el
+          )
+        );
+      }
     }
     
     if (draggingGroup !== null) {
-      const newX = mouseX - dragOffset.x;
-      const newY = mouseY - dragOffset.y;
+      const newX = scaledX - dragOffset.x;
+      const newY = scaledY - dragOffset.y;
       
       setArchGroups(prev => 
         prev.map(gr => 
@@ -351,20 +374,20 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
       let newY = group.y;
       
       if (resizingGroup.corner.includes('e')) {
-        newWidth = Math.max(200, mouseX - group.x);
+        newWidth = Math.max(200, scaledX - group.x);
       }
       if (resizingGroup.corner.includes('w')) {
-        const diff = group.x - mouseX;
+        const diff = group.x - scaledX;
         newWidth = Math.max(200, group.width + diff);
-        newX = mouseX;
+        newX = scaledX;
       }
       if (resizingGroup.corner.includes('s')) {
-        newHeight = Math.max(150, mouseY - group.y);
+        newHeight = Math.max(150, scaledY - group.y);
       }
       if (resizingGroup.corner.includes('n')) {
-        const diff = group.y - mouseY;
+        const diff = group.y - scaledY;
         newHeight = Math.max(150, group.height + diff);
-        newY = mouseY;
+        newY = scaledY;
       }
       
       setArchGroups(prev => 
@@ -381,6 +404,7 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
     setDraggingElement(null);
     setDraggingGroup(null);
     setResizingGroup(null);
+    setIsDragging(false);
   };
 
   const createConnection = () => {
@@ -923,6 +947,17 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
             <Icon name="LayoutGrid" size={14} className="mr-1" />
             Группы
           </Button>
+          
+          <Button
+            variant={snapToGrid ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setSnapToGrid(!snapToGrid)}
+            className="h-8"
+            title={snapToGrid ? 'Отключить привязку к сетке' : 'Включить привязку к сетке'}
+          >
+            <Icon name="Magnet" size={14} className="mr-1" />
+            Привязка
+          </Button>
         </div>
       </div>
 
@@ -1015,10 +1050,14 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
         <div className="flex-1 relative bg-background overflow-hidden">
           {gridEnabled && (
             <div 
-              className="absolute inset-0 opacity-20"
+              className="absolute inset-0 pointer-events-none"
               style={{
-                backgroundImage: 'radial-gradient(circle, #666 1px, transparent 1px)',
-                backgroundSize: '20px 20px'
+                backgroundImage: `
+                  linear-gradient(to right, hsl(var(--border) / 0.4) 1px, transparent 1px),
+                  linear-gradient(to bottom, hsl(var(--border) / 0.4) 1px, transparent 1px)
+                `,
+                backgroundSize: `${GRID_SIZE}px ${GRID_SIZE}px`,
+                backgroundPosition: '32px 32px'
               }}
             />
           )}
@@ -1037,8 +1076,10 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
               style={{ 
                 transform: `scale(${zoom / 100})`, 
                 transformOrigin: 'top left',
-                minWidth: '1400px',
-                minHeight: '700px'
+                width: '100%',
+                height: '100%',
+                minWidth: '1600px',
+                minHeight: '900px'
               }}
             >
               {showGroups && archGroups.map(group => (
@@ -1060,10 +1101,15 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
                   onMouseDown={(e) => {
                     if (resizingGroup) return;
                     e.stopPropagation();
-                    const rect = e.currentTarget.getBoundingClientRect();
+                    
+                    if (!canvasRef.current) return;
+                    const canvasRect = canvasRef.current.getBoundingClientRect();
+                    const scaledX = (e.clientX - canvasRect.left) / (zoom / 100);
+                    const scaledY = (e.clientY - canvasRect.top) / (zoom / 100);
+                    
                     setDragOffset({
-                      x: e.clientX - rect.left,
-                      y: e.clientY - rect.top,
+                      x: scaledX - group.x,
+                      y: scaledY - group.y,
                     });
                     setDraggingGroup(group.id);
                     setSelectedGroup(group.id);
@@ -1143,7 +1189,9 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
               {archElements.map(element => (
                 <div
                   key={element.id}
-                  className={`absolute cursor-move transition-all ${
+                  className={`absolute transition-all ${
+                    draggingElement === element.id ? 'cursor-grabbing' : isDrawingConnection ? 'cursor-crosshair' : 'cursor-grab'
+                  } ${
                     isDrawingConnection 
                       ? 'hover:ring-2 hover:ring-blue-400' 
                       : 'hover:ring-2 hover:ring-purple-400'
@@ -1151,8 +1199,6 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
                     connectionStart === element.id ? 'ring-2 ring-blue-400 shadow-lg' : ''
                   } ${
                     selectedElement?.id === element.id ? 'ring-2 ring-purple-500 shadow-xl' : ''
-                  } ${
-                    draggingElement === element.id ? 'cursor-grabbing' : ''
                   }`}
                   style={{
                     left: `${element.x}px`,
@@ -1161,7 +1207,11 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
                     zIndex: draggingElement === element.id ? 100 : 10
                   }}
                   onMouseDown={(e) => handleMouseDown(e, element.id)}
-                  onClick={(e) => handleElementClick(element, e)}
+                  onClick={(e) => {
+                    if (!isDragging) {
+                      handleElementClick(element, e);
+                    }
+                  }}
                   onDoubleClick={(e) => handleElementDoubleClick(element, e)}
                 >
                   <Card className="p-4 bg-card/95 backdrop-blur-sm group relative">
