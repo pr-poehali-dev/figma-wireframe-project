@@ -269,6 +269,8 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupColor, setNewGroupColor] = useState('#8b5cf6');
   const [newGroupLayer, setNewGroupLayer] = useState<'presentation' | 'business' | 'data' | 'infrastructure' | undefined>(undefined);
+  const [drillDownPath, setDrillDownPath] = useState<string[]>([]);
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   const handleElementClick = (element: ArchElement, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -284,6 +286,11 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
       setSelectedElement(element);
       setActiveTab('properties');
     }
+  };
+  
+  const handleElementDoubleClick = (element: ArchElement, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    drillDown(element);
   };
 
   const handleMouseDown = (e: React.MouseEvent, elementId: number) => {
@@ -474,15 +481,21 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
     }
   };
   
-  const switchC4Level = (level: string) => {
+  const switchC4Level = (level: string, skipTransition = false) => {
     setSelectedElement(null);
     setSelectedGroup(null);
+    
+    if (!skipTransition) {
+      setIsTransitioning(true);
+      setTimeout(() => setIsTransitioning(false), 300);
+    }
     
     switch(level) {
       case 'context':
         setArchElements(C4_CONTEXT_DATA.elements);
         setArchGroups(C4_CONTEXT_DATA.groups);
         setConnections(C4_CONTEXT_DATA.connections);
+        setDrillDownPath([]);
         break;
       case 'container':
         setArchElements(C4_CONTAINER_DATA.elements);
@@ -499,6 +512,54 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
         setArchGroups(C4_CODE_DATA.groups);
         setConnections(C4_CODE_DATA.connections);
         break;
+    }
+  };
+  
+  const drillDown = (element: ArchElement) => {
+    const currentLevel = c4Level;
+    let nextLevel = '';
+    
+    if (currentLevel === 'context' && element.id === 100) {
+      nextLevel = 'container';
+      setDrillDownPath([element.name]);
+    } else if (currentLevel === 'container' && (element.type === 'microservice' || element.type === 'api-gateway')) {
+      nextLevel = 'component';
+      setDrillDownPath(prev => [...prev, element.name]);
+    } else if (currentLevel === 'component' && element.type === 'serverless') {
+      nextLevel = 'code';
+      setDrillDownPath(prev => [...prev, element.name]);
+    }
+    
+    if (nextLevel) {
+      setIsTransitioning(true);
+      setTimeout(() => {
+        setC4Level(nextLevel);
+        switchC4Level(nextLevel, true);
+        setIsTransitioning(false);
+      }, 300);
+    }
+  };
+  
+  const drillUp = () => {
+    const currentLevel = c4Level;
+    let prevLevel = '';
+    
+    if (currentLevel === 'code') {
+      prevLevel = 'component';
+    } else if (currentLevel === 'component') {
+      prevLevel = 'container';
+    } else if (currentLevel === 'container') {
+      prevLevel = 'context';
+    }
+    
+    if (prevLevel) {
+      setDrillDownPath(prev => prev.slice(0, -1));
+      setIsTransitioning(true);
+      setTimeout(() => {
+        setC4Level(prevLevel);
+        switchC4Level(prevLevel, true);
+        setIsTransitioning(false);
+      }, 300);
     }
   };
 
@@ -710,12 +771,21 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
       <div className="h-14 border-b border-border bg-muted/20 flex items-center justify-between px-6">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" title="Undo">
-              <Icon name="Undo" size={18} />
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              title="Back to previous level"
+              disabled={c4Level === 'context' || drillDownPath.length === 0}
+              onClick={drillUp}
+            >
+              <Icon name="ArrowLeft" size={18} />
             </Button>
-            <Button variant="ghost" size="icon" title="Redo">
-              <Icon name="Redo" size={18} />
-            </Button>
+            {drillDownPath.length > 0 && (
+              <div className="flex items-center gap-1 text-xs">
+                <Icon name="FolderTree" size={14} className="text-muted-foreground" />
+                <span className="text-muted-foreground">{drillDownPath.join(' > ')}</span>
+              </div>
+            )}
           </div>
           
           <div className="h-6 w-px bg-border" />
@@ -930,7 +1000,7 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
             }}
           >
             <div 
-              className="relative"
+              className={`relative transition-opacity duration-300 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}
               style={{ 
                 transform: `scale(${zoom / 100})`, 
                 transformOrigin: 'top left',
@@ -1059,8 +1129,9 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
                   }}
                   onMouseDown={(e) => handleMouseDown(e, element.id)}
                   onClick={(e) => handleElementClick(element, e)}
+                  onDoubleClick={(e) => handleElementDoubleClick(element, e)}
                 >
-                  <Card className="p-4 bg-card/95 backdrop-blur-sm group">
+                  <Card className="p-4 bg-card/95 backdrop-blur-sm group relative">
                     <div className="flex items-center justify-center mb-2">
                       <div className={`h-12 w-12 rounded-lg flex items-center justify-center transition-transform group-hover:scale-110 ${
                         element.layer === 'presentation' ? 'bg-gradient-to-br from-purple-500 to-blue-500' :
@@ -1072,6 +1143,16 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
                     </div>
                     <h4 className="font-semibold text-center text-sm line-clamp-1">{element.name}</h4>
                     <p className="text-xs text-muted-foreground text-center mt-1 line-clamp-1">{element.techStack}</p>
+                    
+                    {((c4Level === 'context' && element.id === 100) || 
+                      (c4Level === 'container' && (element.type === 'microservice' || element.type === 'api-gateway')) ||
+                      (c4Level === 'component' && element.type === 'serverless')) && (
+                      <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="h-5 w-5 rounded-full bg-blue-500 flex items-center justify-center animate-pulse">
+                          <Icon name="ZoomIn" size={12} className="text-white" />
+                        </div>
+                      </div>
+                    )}
                     
                     <Button
                       variant="ghost"
@@ -1163,6 +1244,19 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
                         <p className="text-xs text-muted-foreground">{selectedElement.type}</p>
                       </div>
                     </div>
+                    
+                    {((c4Level === 'context' && selectedElement.id === 100) || 
+                      (c4Level === 'container' && (selectedElement.type === 'microservice' || selectedElement.type === 'api-gateway')) ||
+                      (c4Level === 'component' && selectedElement.type === 'serverless')) && (
+                      <Button 
+                        className="w-full bg-gradient-to-r from-blue-600 to-cyan-600"
+                        size="sm"
+                        onClick={() => drillDown(selectedElement)}
+                      >
+                        <Icon name="ZoomIn" size={14} className="mr-2" />
+                        Drill Down ({c4Level === 'context' ? 'Container' : c4Level === 'container' ? 'Component' : 'Code'} Level)
+                      </Button>
+                    )}
                   </div>
 
                   <Card className="p-4 space-y-3">
@@ -1898,6 +1992,28 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
               >
                 <Icon name="X" size={18} />
               </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+      
+      {!isDrawingConnection && archElements.some(el => 
+        (c4Level === 'context' && el.id === 100) || 
+        (c4Level === 'container' && (el.type === 'microservice' || el.type === 'api-gateway')) ||
+        (c4Level === 'component' && el.type === 'serverless')
+      ) && (
+        <div className="fixed bottom-8 right-8 z-50 animate-fade-in">
+          <Card className="p-3 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border-blue-500/30 backdrop-blur-sm max-w-xs">
+            <div className="flex items-start gap-2">
+              <div className="h-8 w-8 rounded-lg bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                <Icon name="Info" size={16} className="text-blue-400" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-xs mb-1">💡 Подсказка</p>
+                <p className="text-xs text-muted-foreground">
+                  Дважды кликните на элемент или нажмите кнопку "Drill Down" для перехода на следующий уровень детализации
+                </p>
+              </div>
             </div>
           </Card>
         </div>
