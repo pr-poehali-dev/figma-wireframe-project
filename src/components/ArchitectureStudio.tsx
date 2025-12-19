@@ -26,6 +26,7 @@ interface ArchElement {
   memory?: string;
   layer?: 'presentation' | 'business' | 'data' | 'infrastructure';
   groupId?: number;
+  c4Level?: 'context' | 'container' | 'component' | 'code';
 }
 
 interface ArchConnection {
@@ -107,6 +108,121 @@ const GROUP_PRESETS = [
   { name: 'Custom Group', color: '#6366f1', layer: undefined },
 ];
 
+const C4_CONTEXT_DATA = {
+  elements: [
+    { id: 100, name: 'E-Commerce System', type: 'webapp', x: 400, y: 250, techStack: 'Microservices Platform', layer: 'business' as const, c4Level: 'context' as const, description: 'Основная платформа электронной коммерции' },
+    { id: 101, name: 'Customer', type: 'user', x: 150, y: 100, techStack: 'Web/Mobile Users', layer: 'presentation' as const, c4Level: 'context' as const, description: 'Покупатели' },
+    { id: 102, name: 'Admin', type: 'user', x: 150, y: 400, techStack: 'Internal Users', layer: 'presentation' as const, c4Level: 'context' as const, description: 'Администраторы' },
+    { id: 103, name: 'Payment Gateway', type: 'external', x: 700, y: 200, techStack: 'Stripe/PayPal', layer: 'business' as const, c4Level: 'context' as const, description: 'Внешний платежный шлюз' },
+    { id: 104, name: 'Email Service', type: 'external', x: 700, y: 350, techStack: 'SendGrid', layer: 'business' as const, c4Level: 'context' as const, description: 'Email-уведомления' },
+    { id: 105, name: 'Shipping Service', type: 'external', x: 700, y: 500, techStack: 'DHL/FedEx API', layer: 'business' as const, c4Level: 'context' as const, description: 'Служба доставки' },
+  ],
+  connections: [
+    { id: 1001, from: 101, to: 100, protocol: 'HTTPS', type: 'sync' as const, description: 'Просмотр и покупка товаров' },
+    { id: 1002, from: 102, to: 100, protocol: 'HTTPS', type: 'sync' as const, description: 'Управление системой' },
+    { id: 1003, from: 100, to: 103, protocol: 'REST API', type: 'sync' as const, description: 'Обработка платежей' },
+    { id: 1004, from: 100, to: 104, protocol: 'SMTP', type: 'async' as const, description: 'Отправка email' },
+    { id: 1005, from: 100, to: 105, protocol: 'REST API', type: 'sync' as const, description: 'Отслеживание доставки' },
+  ],
+  groups: [
+    { id: 100, name: 'External Systems', color: '#ef4444', x: 650, y: 150, width: 250, height: 400, description: 'Внешние сервисы и API' },
+  ]
+};
+
+const C4_CONTAINER_DATA = {
+  elements: [
+    { id: 200, name: 'Web App', type: 'webapp', x: 120, y: 80, techStack: 'React + TypeScript', layer: 'presentation' as const, groupId: 201, c4Level: 'container' as const },
+    { id: 201, name: 'Mobile App', type: 'mobile', x: 320, y: 80, techStack: 'React Native', layer: 'presentation' as const, groupId: 201, c4Level: 'container' as const },
+    { id: 202, name: 'Admin Panel', type: 'webapp', x: 520, y: 80, techStack: 'Next.js', layer: 'presentation' as const, groupId: 201, c4Level: 'container' as const },
+    { id: 211, name: 'API Gateway', type: 'api-gateway', x: 120, y: 280, techStack: 'Kong', layer: 'business' as const, groupId: 202, c4Level: 'container' as const },
+    { id: 212, name: 'Order Service', type: 'microservice', x: 320, y: 280, techStack: 'Java + Spring', layer: 'business' as const, groupId: 202, c4Level: 'container' as const },
+    { id: 213, name: 'Payment Service', type: 'microservice', x: 520, y: 280, techStack: 'Node.js', layer: 'business' as const, groupId: 202, c4Level: 'container' as const },
+    { id: 214, name: 'Inventory Service', type: 'microservice', x: 720, y: 280, techStack: 'Python', layer: 'business' as const, groupId: 202, c4Level: 'container' as const },
+    { id: 220, name: 'PostgreSQL', type: 'database', x: 150, y: 480, techStack: 'Orders & Users', layer: 'data' as const, groupId: 203, c4Level: 'container' as const },
+    { id: 221, name: 'MongoDB', type: 'database', x: 350, y: 480, techStack: 'Product Catalog', layer: 'data' as const, groupId: 203, c4Level: 'container' as const },
+    { id: 222, name: 'Redis Cache', type: 'cache', x: 550, y: 480, techStack: 'Session Store', layer: 'data' as const, groupId: 203, c4Level: 'container' as const },
+    { id: 223, name: 'Kafka', type: 'queue', x: 750, y: 480, techStack: 'Event Streaming', layer: 'data' as const, groupId: 203, c4Level: 'container' as const },
+  ],
+  connections: [
+    { id: 2001, from: 201, to: 211, protocol: 'HTTPS', type: 'sync' as const, description: 'Загрузка интерфейса' },
+    { id: 2002, from: 211, to: 212, protocol: 'REST', type: 'sync' as const, description: 'Создание заказа' },
+    { id: 2003, from: 212, to: 213, protocol: 'REST', type: 'sync' as const, description: 'Обработка платежа' },
+    { id: 2004, from: 212, to: 220, protocol: 'JDBC', type: 'sync' as const, description: 'Сохранение заказа' },
+    { id: 2005, from: 213, to: 221, protocol: 'MongoDB Driver', type: 'sync' as const, description: 'Запись транзакции' },
+    { id: 2006, from: 200, to: 211, protocol: 'HTTPS', type: 'sync' as const, description: 'Web запросы' },
+    { id: 2007, from: 214, to: 222, protocol: 'Redis Protocol', type: 'sync' as const, description: 'Кэш инвентаря' },
+  ],
+  groups: [
+    { id: 201, name: 'Presentation Layer', color: '#8b5cf6', x: 80, y: 30, width: 650, height: 200, layer: 'presentation' as const, description: 'Frontend приложения' },
+    { id: 202, name: 'Business Logic', color: '#10b981', x: 80, y: 250, width: 850, height: 180, layer: 'business' as const, description: 'Микросервисы' },
+    { id: 203, name: 'Data Layer', color: '#3b82f6', x: 100, y: 450, width: 800, height: 180, layer: 'data' as const, description: 'Хранилища данных' },
+  ]
+};
+
+const C4_COMPONENT_DATA = {
+  elements: [
+    { id: 300, name: 'Order Controller', type: 'serverless', x: 100, y: 80, techStack: 'REST Controller', layer: 'business' as const, c4Level: 'component' as const, groupId: 301 },
+    { id: 301, name: 'Order Validator', type: 'serverless', x: 250, y: 80, techStack: 'Validation Logic', layer: 'business' as const, c4Level: 'component' as const, groupId: 301 },
+    { id: 302, name: 'Order Repository', type: 'serverless', x: 400, y: 80, techStack: 'Data Access', layer: 'business' as const, c4Level: 'component' as const, groupId: 301 },
+    { id: 303, name: 'Payment Processor', type: 'serverless', x: 100, y: 220, techStack: 'Payment Logic', layer: 'business' as const, c4Level: 'component' as const, groupId: 302 },
+    { id: 304, name: 'Payment Gateway Adapter', type: 'serverless', x: 280, y: 220, techStack: 'External API', layer: 'business' as const, c4Level: 'component' as const, groupId: 302 },
+    { id: 305, name: 'Transaction Manager', type: 'serverless', x: 460, y: 220, techStack: 'Transaction Control', layer: 'business' as const, c4Level: 'component' as const, groupId: 302 },
+    { id: 310, name: 'Product Service', type: 'serverless', x: 100, y: 360, techStack: 'CRUD Operations', layer: 'business' as const, c4Level: 'component' as const, groupId: 303 },
+    { id: 311, name: 'Inventory Manager', type: 'serverless', x: 280, y: 360, techStack: 'Stock Management', layer: 'business' as const, c4Level: 'component' as const, groupId: 303 },
+    { id: 312, name: 'Price Calculator', type: 'serverless', x: 460, y: 360, techStack: 'Pricing Logic', layer: 'business' as const, c4Level: 'component' as const, groupId: 303 },
+    { id: 320, name: 'Email Sender', type: 'serverless', x: 650, y: 150, techStack: 'Notification Service', layer: 'business' as const, c4Level: 'component' as const },
+    { id: 321, name: 'SMS Sender', type: 'serverless', x: 650, y: 280, techStack: 'SMS Gateway', layer: 'business' as const, c4Level: 'component' as const },
+  ],
+  connections: [
+    { id: 3001, from: 300, to: 301, protocol: 'Internal', type: 'sync' as const, description: 'Validate order' },
+    { id: 3002, from: 301, to: 302, protocol: 'Internal', type: 'sync' as const, description: 'Save to DB' },
+    { id: 3003, from: 300, to: 303, protocol: 'Internal', type: 'sync' as const, description: 'Process payment' },
+    { id: 3004, from: 303, to: 304, protocol: 'REST', type: 'sync' as const, description: 'Call external gateway' },
+    { id: 3005, from: 303, to: 305, protocol: 'Internal', type: 'sync' as const, description: 'Manage transaction' },
+    { id: 3006, from: 311, to: 310, protocol: 'Internal', type: 'sync' as const, description: 'Check availability' },
+    { id: 3007, from: 312, to: 310, protocol: 'Internal', type: 'sync' as const, description: 'Calculate price' },
+    { id: 3008, from: 302, to: 320, protocol: 'Event', type: 'async' as const, description: 'Send confirmation' },
+  ],
+  groups: [
+    { id: 301, name: 'Order Components', color: '#10b981', x: 70, y: 40, width: 480, height: 110, description: 'Компоненты заказов' },
+    { id: 302, name: 'Payment Components', color: '#3b82f6', x: 70, y: 180, width: 550, height: 110, description: 'Платежные компоненты' },
+    { id: 303, name: 'Product Components', color: '#f59e0b', x: 70, y: 320, width: 550, height: 110, description: 'Компоненты товаров' },
+  ]
+};
+
+const C4_CODE_DATA = {
+  elements: [
+    { id: 400, name: 'OrderController.java', type: 'serverless', x: 100, y: 70, techStack: '@RestController', layer: 'business' as const, c4Level: 'code' as const, groupId: 401 },
+    { id: 401, name: 'createOrder()', type: 'serverless', x: 100, y: 140, techStack: '@PostMapping', layer: 'business' as const, c4Level: 'code' as const, groupId: 401 },
+    { id: 402, name: 'getOrder()', type: 'serverless', x: 250, y: 140, techStack: '@GetMapping', layer: 'business' as const, c4Level: 'code' as const, groupId: 401 },
+    { id: 403, name: 'updateOrder()', type: 'serverless', x: 400, y: 140, techStack: '@PutMapping', layer: 'business' as const, c4Level: 'code' as const, groupId: 401 },
+    { id: 410, name: 'OrderService.java', type: 'serverless', x: 100, y: 260, techStack: '@Service', layer: 'business' as const, c4Level: 'code' as const, groupId: 402 },
+    { id: 411, name: 'validateOrder()', type: 'serverless', x: 100, y: 330, techStack: 'Business Logic', layer: 'business' as const, c4Level: 'code' as const, groupId: 402 },
+    { id: 412, name: 'processOrder()', type: 'serverless', x: 250, y: 330, techStack: 'Business Logic', layer: 'business' as const, c4Level: 'code' as const, groupId: 402 },
+    { id: 413, name: 'calculateTotal()', type: 'serverless', x: 400, y: 330, techStack: 'Business Logic', layer: 'business' as const, c4Level: 'code' as const, groupId: 402 },
+    { id: 420, name: 'OrderRepository.java', type: 'database', x: 100, y: 450, techStack: '@Repository', layer: 'data' as const, c4Level: 'code' as const, groupId: 403 },
+    { id: 421, name: 'save()', type: 'database', x: 100, y: 520, techStack: 'JPA Method', layer: 'data' as const, c4Level: 'code' as const, groupId: 403 },
+    { id: 422, name: 'findById()', type: 'database', x: 250, y: 520, techStack: 'JPA Method', layer: 'data' as const, c4Level: 'code' as const, groupId: 403 },
+    { id: 430, name: 'Order.java', type: 'serverless', x: 600, y: 150, techStack: '@Entity', layer: 'business' as const, c4Level: 'code' as const },
+    { id: 431, name: 'OrderDTO.java', type: 'serverless', x: 600, y: 250, techStack: 'Data Transfer', layer: 'business' as const, c4Level: 'code' as const },
+    { id: 432, name: 'OrderMapper.java', type: 'serverless', x: 600, y: 350, techStack: 'MapStruct', layer: 'business' as const, c4Level: 'code' as const },
+  ],
+  connections: [
+    { id: 4001, from: 401, to: 411, protocol: 'Method Call', type: 'sync' as const, description: 'Validate' },
+    { id: 4002, from: 402, to: 422, protocol: 'Method Call', type: 'sync' as const, description: 'Find' },
+    { id: 4003, from: 403, to: 412, protocol: 'Method Call', type: 'sync' as const, description: 'Process' },
+    { id: 4004, from: 411, to: 413, protocol: 'Method Call', type: 'sync' as const, description: 'Calculate' },
+    { id: 4005, from: 412, to: 421, protocol: 'Method Call', type: 'sync' as const, description: 'Save' },
+    { id: 4006, from: 401, to: 432, protocol: 'Method Call', type: 'sync' as const, description: 'Map DTO' },
+    { id: 4007, from: 432, to: 430, protocol: 'Method Call', type: 'sync' as const, description: 'To Entity' },
+  ],
+  groups: [
+    { id: 401, name: 'Controller Layer', color: '#8b5cf6', x: 70, y: 40, width: 480, height: 180, description: 'REST контроллеры' },
+    { id: 402, name: 'Service Layer', color: '#10b981', x: 70, y: 230, width: 480, height: 180, description: 'Бизнес-логика' },
+    { id: 403, name: 'Repository Layer', color: '#3b82f6', x: 70, y: 420, width: 300, height: 150, description: 'Доступ к данным' },
+  ]
+};
+
 export default function ArchitectureStudio({ elements: propElements, onClose }: ArchitectureStudioProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [selectedElement, setSelectedElement] = useState<ArchElement | null>(null);
@@ -124,35 +240,9 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
   const [draggingGroup, setDraggingGroup] = useState<number | null>(null);
   const [resizingGroup, setResizingGroup] = useState<{ id: number; corner: string } | null>(null);
   
-  const [archElements, setArchElements] = useState<ArchElement[]>([
-    { id: 0, name: 'Web App', type: 'webapp', x: 120, y: 80, techStack: 'React + TypeScript', layer: 'presentation', groupId: 1 },
-    { id: 1, name: 'Mobile App', type: 'mobile', x: 320, y: 80, techStack: 'React Native', layer: 'presentation', groupId: 1 },
-    { id: 2, name: 'Admin Panel', type: 'webapp', x: 520, y: 80, techStack: 'Next.js', layer: 'presentation', groupId: 1 },
-    { id: 11, name: 'API Gateway', type: 'api-gateway', x: 120, y: 280, techStack: 'Kong', layer: 'business', groupId: 2 },
-    { id: 12, name: 'Order Service', type: 'microservice', x: 320, y: 280, techStack: 'Java + Spring', layer: 'business', groupId: 2 },
-    { id: 13, name: 'Payment Service', type: 'microservice', x: 520, y: 280, techStack: 'Node.js', layer: 'business', groupId: 2 },
-    { id: 14, name: 'Inventory Service', type: 'microservice', x: 720, y: 280, techStack: 'Python', layer: 'business', groupId: 2 },
-    { id: 20, name: 'PostgreSQL', type: 'database', x: 150, y: 480, techStack: 'Orders & Users', layer: 'data', groupId: 3 },
-    { id: 21, name: 'MongoDB', type: 'database', x: 350, y: 480, techStack: 'Product Catalog', layer: 'data', groupId: 3 },
-    { id: 22, name: 'Redis Cache', type: 'cache', x: 550, y: 480, techStack: 'Session Store', layer: 'data', groupId: 3 },
-    { id: 23, name: 'Kafka', type: 'queue', x: 750, y: 480, techStack: 'Event Streaming', layer: 'data', groupId: 3 },
-  ]);
-  
-  const [archGroups, setArchGroups] = useState<ArchGroup[]>([
-    { id: 1, name: 'Presentation Layer', color: '#8b5cf6', x: 80, y: 30, width: 650, height: 200, layer: 'presentation', description: 'Frontend приложения и пользовательские интерфейсы' },
-    { id: 2, name: 'Business Logic', color: '#10b981', x: 80, y: 250, width: 850, height: 180, layer: 'business', description: 'Бизнес-логика и микросервисы' },
-    { id: 3, name: 'Data Layer', color: '#3b82f6', x: 100, y: 450, width: 800, height: 180, layer: 'data', description: 'Хранилища данных и кэши' },
-  ]);
-  
-  const [connections, setConnections] = useState<ArchConnection[]>([
-    { id: 1, from: 1, to: 11, protocol: 'HTTPS', type: 'sync', description: 'Загрузка интерфейса' },
-    { id: 2, from: 11, to: 12, protocol: 'REST', type: 'sync', description: 'Создание заказа' },
-    { id: 3, from: 12, to: 13, protocol: 'REST', type: 'sync', description: 'Обработка платежа' },
-    { id: 4, from: 12, to: 20, protocol: 'JDBC', type: 'sync', description: 'Сохранение заказа' },
-    { id: 5, from: 13, to: 21, protocol: 'MongoDB Driver', type: 'sync', description: 'Запись транзакции' },
-    { id: 6, from: 0, to: 11, protocol: 'HTTPS', type: 'sync', description: 'Web запросы' },
-    { id: 7, from: 14, to: 22, protocol: 'Redis Protocol', type: 'sync', description: 'Кэш инвентаря' },
-  ]);
+  const [archElements, setArchElements] = useState<ArchElement[]>(C4_CONTAINER_DATA.elements);
+  const [archGroups, setArchGroups] = useState<ArchGroup[]>(C4_CONTAINER_DATA.groups);
+  const [connections, setConnections] = useState<ArchConnection[]>(C4_CONTAINER_DATA.connections);
   
   const [isDrawingConnection, setIsDrawingConnection] = useState(false);
   const [connectionStart, setConnectionStart] = useState<number | null>(null);
@@ -383,6 +473,34 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
       setSelectedElement(prev => prev ? { ...prev, ...updates } : null);
     }
   };
+  
+  const switchC4Level = (level: string) => {
+    setSelectedElement(null);
+    setSelectedGroup(null);
+    
+    switch(level) {
+      case 'context':
+        setArchElements(C4_CONTEXT_DATA.elements);
+        setArchGroups(C4_CONTEXT_DATA.groups);
+        setConnections(C4_CONTEXT_DATA.connections);
+        break;
+      case 'container':
+        setArchElements(C4_CONTAINER_DATA.elements);
+        setArchGroups(C4_CONTAINER_DATA.groups);
+        setConnections(C4_CONTAINER_DATA.connections);
+        break;
+      case 'component':
+        setArchElements(C4_COMPONENT_DATA.elements);
+        setArchGroups(C4_COMPONENT_DATA.groups);
+        setConnections(C4_COMPONENT_DATA.connections);
+        break;
+      case 'code':
+        setArchElements(C4_CODE_DATA.elements);
+        setArchGroups(C4_CODE_DATA.groups);
+        setConnections(C4_CODE_DATA.connections);
+        break;
+    }
+  };
 
   const getElementById = (id: number) => {
     return archElements.find(e => e.id === id);
@@ -556,7 +674,15 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
             </div>
             <div>
               <h1 className="text-lg font-bold">Architecture Studio Pro</h1>
-              <p className="text-xs text-muted-foreground">E-Commerce Platform</p>
+              <p className="text-xs text-muted-foreground">
+                E-Commerce Platform — 
+                <span className="font-semibold text-foreground ml-1">
+                  {c4Level === 'context' && 'Системный контекст'}
+                  {c4Level === 'container' && 'Контейнеры приложения'}
+                  {c4Level === 'component' && 'Компоненты сервисов'}
+                  {c4Level === 'code' && 'Уровень кода'}
+                </span>
+              </p>
             </div>
           </div>
         </div>
@@ -629,7 +755,10 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
                 key={level.id}
                 variant={c4Level === level.id ? 'default' : 'ghost'}
                 size="sm"
-                onClick={() => setC4Level(level.id)}
+                onClick={() => {
+                  setC4Level(level.id);
+                  switchC4Level(level.id);
+                }}
                 className="h-8"
               >
                 <Icon name={level.icon as any} size={14} className="mr-1" />
@@ -961,10 +1090,13 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
             </div>
           </div>
 
-          <div className="absolute bottom-4 left-4 bg-card border border-border rounded-lg p-2 flex items-center gap-2 text-xs">
-            <span className="text-muted-foreground">Zoom: {zoom}%</span>
+          <div className="absolute bottom-4 left-4 bg-card border border-border rounded-lg p-3 flex items-center gap-2 text-xs shadow-lg">
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-2 rounded-full bg-blue-400 animate-pulse" />
+              <span className="font-semibold">{C4_LEVELS.find(l => l.id === c4Level)?.name}</span>
+            </div>
             <div className="h-4 w-px bg-border" />
-            <span className="text-muted-foreground">Сетка: {gridEnabled ? 'Вкл' : 'Выкл'}</span>
+            <span className="text-muted-foreground">Zoom: {zoom}%</span>
             <div className="h-4 w-px bg-border" />
             <span className="text-muted-foreground">Элементов: {archElements.length}</span>
             <div className="h-4 w-px bg-border" />
