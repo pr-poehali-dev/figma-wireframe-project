@@ -25,6 +25,7 @@ interface ArchElement {
   cpu?: string;
   memory?: string;
   layer?: 'presentation' | 'business' | 'data' | 'infrastructure';
+  groupId?: number;
 }
 
 interface ArchConnection {
@@ -34,6 +35,18 @@ interface ArchConnection {
   protocol: string;
   type: 'sync' | 'async' | 'data';
   description?: string;
+}
+
+interface ArchGroup {
+  id: number;
+  name: string;
+  color: string;
+  description?: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  layer?: 'presentation' | 'business' | 'data' | 'infrastructure';
 }
 
 interface ArchitectureStudioProps {
@@ -85,6 +98,15 @@ const AI_RECOMMENDATIONS = [
   },
 ];
 
+const GROUP_PRESETS = [
+  { name: 'Presentation Layer', color: '#8b5cf6', layer: 'presentation' as const },
+  { name: 'Business Logic', color: '#10b981', layer: 'business' as const },
+  { name: 'Data Layer', color: '#3b82f6', layer: 'data' as const },
+  { name: 'Infrastructure', color: '#f59e0b', layer: 'infrastructure' as const },
+  { name: 'External Services', color: '#ef4444', layer: undefined },
+  { name: 'Custom Group', color: '#6366f1', layer: undefined },
+];
+
 export default function ArchitectureStudio({ elements: propElements, onClose }: ArchitectureStudioProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [selectedElement, setSelectedElement] = useState<ArchElement | null>(null);
@@ -97,19 +119,29 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [showConnectionLines, setShowConnectionLines] = useState(true);
   const [hoveredConnection, setHoveredConnection] = useState<number | null>(null);
+  const [showGroups, setShowGroups] = useState(true);
+  const [selectedGroup, setSelectedGroup] = useState<number | null>(null);
+  const [draggingGroup, setDraggingGroup] = useState<number | null>(null);
+  const [resizingGroup, setResizingGroup] = useState<{ id: number; corner: string } | null>(null);
   
   const [archElements, setArchElements] = useState<ArchElement[]>([
-    { id: 0, name: 'Web App', type: 'webapp', x: 100, y: 50, techStack: 'React + TypeScript', layer: 'presentation' },
-    { id: 1, name: 'Mobile App', type: 'mobile', x: 350, y: 50, techStack: 'React Native', layer: 'presentation' },
-    { id: 2, name: 'Admin Panel', type: 'webapp', x: 600, y: 50, techStack: 'Next.js', layer: 'presentation' },
-    { id: 11, name: 'API Gateway', type: 'api-gateway', x: 100, y: 250, techStack: 'Kong', layer: 'business' },
-    { id: 12, name: 'Order Service', type: 'microservice', x: 300, y: 250, techStack: 'Java + Spring', layer: 'business' },
-    { id: 13, name: 'Payment Service', type: 'microservice', x: 500, y: 250, techStack: 'Node.js', layer: 'business' },
-    { id: 14, name: 'Inventory Service', type: 'microservice', x: 700, y: 250, techStack: 'Python', layer: 'business' },
-    { id: 20, name: 'PostgreSQL', type: 'database', x: 150, y: 450, techStack: 'Orders & Users', layer: 'data' },
-    { id: 21, name: 'MongoDB', type: 'database', x: 350, y: 450, techStack: 'Product Catalog', layer: 'data' },
-    { id: 22, name: 'Redis Cache', type: 'cache', x: 550, y: 450, techStack: 'Session Store', layer: 'data' },
-    { id: 23, name: 'Kafka', type: 'queue', x: 750, y: 450, techStack: 'Event Streaming', layer: 'data' },
+    { id: 0, name: 'Web App', type: 'webapp', x: 120, y: 80, techStack: 'React + TypeScript', layer: 'presentation', groupId: 1 },
+    { id: 1, name: 'Mobile App', type: 'mobile', x: 320, y: 80, techStack: 'React Native', layer: 'presentation', groupId: 1 },
+    { id: 2, name: 'Admin Panel', type: 'webapp', x: 520, y: 80, techStack: 'Next.js', layer: 'presentation', groupId: 1 },
+    { id: 11, name: 'API Gateway', type: 'api-gateway', x: 120, y: 280, techStack: 'Kong', layer: 'business', groupId: 2 },
+    { id: 12, name: 'Order Service', type: 'microservice', x: 320, y: 280, techStack: 'Java + Spring', layer: 'business', groupId: 2 },
+    { id: 13, name: 'Payment Service', type: 'microservice', x: 520, y: 280, techStack: 'Node.js', layer: 'business', groupId: 2 },
+    { id: 14, name: 'Inventory Service', type: 'microservice', x: 720, y: 280, techStack: 'Python', layer: 'business', groupId: 2 },
+    { id: 20, name: 'PostgreSQL', type: 'database', x: 150, y: 480, techStack: 'Orders & Users', layer: 'data', groupId: 3 },
+    { id: 21, name: 'MongoDB', type: 'database', x: 350, y: 480, techStack: 'Product Catalog', layer: 'data', groupId: 3 },
+    { id: 22, name: 'Redis Cache', type: 'cache', x: 550, y: 480, techStack: 'Session Store', layer: 'data', groupId: 3 },
+    { id: 23, name: 'Kafka', type: 'queue', x: 750, y: 480, techStack: 'Event Streaming', layer: 'data', groupId: 3 },
+  ]);
+  
+  const [archGroups, setArchGroups] = useState<ArchGroup[]>([
+    { id: 1, name: 'Presentation Layer', color: '#8b5cf6', x: 80, y: 30, width: 650, height: 200, layer: 'presentation', description: 'Frontend приложения и пользовательские интерфейсы' },
+    { id: 2, name: 'Business Logic', color: '#10b981', x: 80, y: 250, width: 850, height: 180, layer: 'business', description: 'Бизнес-логика и микросервисы' },
+    { id: 3, name: 'Data Layer', color: '#3b82f6', x: 100, y: 450, width: 800, height: 180, layer: 'data', description: 'Хранилища данных и кэши' },
   ]);
   
   const [connections, setConnections] = useState<ArchConnection[]>([
@@ -143,6 +175,10 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
   const [newElementType, setNewElementType] = useState('microservice');
   const [newElementName, setNewElementName] = useState('');
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [isAddGroupDialogOpen, setIsAddGroupDialogOpen] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupColor, setNewGroupColor] = useState('#8b5cf6');
+  const [newGroupLayer, setNewGroupLayer] = useState<'presentation' | 'business' | 'data' | 'infrastructure' | undefined>(undefined);
 
   const handleElementClick = (element: ArchElement, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -176,23 +212,78 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (draggingElement === null || !canvasRef.current) return;
+    if (!canvasRef.current) return;
     
     const rect = canvasRef.current.getBoundingClientRect();
-    const newX = (e.clientX - rect.left - dragOffset.x) / (zoom / 100);
-    const newY = (e.clientY - rect.top - dragOffset.y) / (zoom / 100);
+    const mouseX = (e.clientX - rect.left) / (zoom / 100);
+    const mouseY = (e.clientY - rect.top) / (zoom / 100);
     
-    setArchElements(prev => 
-      prev.map(el => 
-        el.id === draggingElement 
-          ? { ...el, x: Math.max(0, Math.min(newX, 1200)), y: Math.max(0, Math.min(newY, 600)) }
-          : el
-      )
-    );
+    if (draggingElement !== null) {
+      const newX = mouseX - dragOffset.x;
+      const newY = mouseY - dragOffset.y;
+      
+      setArchElements(prev => 
+        prev.map(el => 
+          el.id === draggingElement 
+            ? { ...el, x: Math.max(0, Math.min(newX, 1200)), y: Math.max(0, Math.min(newY, 600)) }
+            : el
+        )
+      );
+    }
+    
+    if (draggingGroup !== null) {
+      const newX = mouseX - dragOffset.x;
+      const newY = mouseY - dragOffset.y;
+      
+      setArchGroups(prev => 
+        prev.map(gr => 
+          gr.id === draggingGroup 
+            ? { ...gr, x: Math.max(0, newX), y: Math.max(0, newY) }
+            : gr
+        )
+      );
+    }
+    
+    if (resizingGroup !== null) {
+      const group = archGroups.find(g => g.id === resizingGroup.id);
+      if (!group) return;
+      
+      let newWidth = group.width;
+      let newHeight = group.height;
+      let newX = group.x;
+      let newY = group.y;
+      
+      if (resizingGroup.corner.includes('e')) {
+        newWidth = Math.max(200, mouseX - group.x);
+      }
+      if (resizingGroup.corner.includes('w')) {
+        const diff = group.x - mouseX;
+        newWidth = Math.max(200, group.width + diff);
+        newX = mouseX;
+      }
+      if (resizingGroup.corner.includes('s')) {
+        newHeight = Math.max(150, mouseY - group.y);
+      }
+      if (resizingGroup.corner.includes('n')) {
+        const diff = group.y - mouseY;
+        newHeight = Math.max(150, group.height + diff);
+        newY = mouseY;
+      }
+      
+      setArchGroups(prev => 
+        prev.map(gr => 
+          gr.id === resizingGroup.id 
+            ? { ...gr, x: newX, y: newY, width: newWidth, height: newHeight }
+            : gr
+        )
+      );
+    }
   };
 
   const handleMouseUp = () => {
     setDraggingElement(null);
+    setDraggingGroup(null);
+    setResizingGroup(null);
   };
 
   const createConnection = () => {
@@ -243,11 +334,47 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
     setNewElementName('');
     setIsAddElementDialogOpen(false);
   };
+  
+  const addNewGroup = () => {
+    if (!newGroupName.trim()) return;
+    
+    const newGroup: ArchGroup = {
+      id: Date.now(),
+      name: newGroupName,
+      color: newGroupColor,
+      x: 100,
+      y: 100,
+      width: 400,
+      height: 250,
+      layer: newGroupLayer,
+      description: 'Новая группа элементов'
+    };
+    
+    setArchGroups(prev => [...prev, newGroup]);
+    setNewGroupName('');
+    setNewGroupColor('#8b5cf6');
+    setNewGroupLayer(undefined);
+    setIsAddGroupDialogOpen(false);
+  };
 
   const deleteElement = (id: number) => {
     setArchElements(prev => prev.filter(el => el.id !== id));
     setConnections(prev => prev.filter(conn => conn.from !== id && conn.to !== id));
     if (selectedElement?.id === id) setSelectedElement(null);
+  };
+  
+  const deleteGroup = (id: number) => {
+    setArchGroups(prev => prev.filter(gr => gr.id !== id));
+    setArchElements(prev => prev.map(el => el.groupId === id ? { ...el, groupId: undefined } : el));
+    if (selectedGroup === id) setSelectedGroup(null);
+  };
+  
+  const updateGroup = (id: number, updates: Partial<ArchGroup>) => {
+    setArchGroups(prev => prev.map(gr => gr.id === id ? { ...gr, ...updates } : gr));
+  };
+  
+  const assignElementToGroup = (elementId: number, groupId: number | undefined) => {
+    setArchElements(prev => prev.map(el => el.id === elementId ? { ...el, groupId } : el));
   };
 
   const updateElement = (id: number, updates: Partial<ArchElement>) => {
@@ -472,6 +599,10 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
               <Icon name="Plus" size={16} className="mr-2" />
               Элемент
             </Button>
+            <Button variant="ghost" size="sm" onClick={() => setIsAddGroupDialogOpen(true)}>
+              <Icon name="Square" size={16} className="mr-2" />
+              Группа
+            </Button>
             <Button 
               variant={isDrawingConnection ? 'default' : 'ghost'} 
               size="sm"
@@ -549,6 +680,16 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
           >
             <Icon name="GitBranch" size={14} className="mr-1" />
             Связи
+          </Button>
+          
+          <Button
+            variant={showGroups ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setShowGroups(!showGroups)}
+            className="h-8"
+          >
+            <Icon name="LayoutGrid" size={14} className="mr-1" />
+            Группы
           </Button>
         </div>
       </div>
@@ -668,6 +809,82 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
                 minHeight: '700px'
               }}
             >
+              {showGroups && archGroups.map(group => (
+                <div
+                  key={group.id}
+                  className={`absolute border-2 border-dashed rounded-2xl transition-all ${
+                    selectedGroup === group.id ? 'border-solid shadow-2xl' : ''
+                  }`}
+                  style={{
+                    left: `${group.x}px`,
+                    top: `${group.y}px`,
+                    width: `${group.width}px`,
+                    height: `${group.height}px`,
+                    borderColor: group.color,
+                    backgroundColor: `${group.color}15`,
+                    zIndex: 0,
+                    cursor: draggingGroup === group.id ? 'grabbing' : 'grab'
+                  }}
+                  onMouseDown={(e) => {
+                    if (resizingGroup) return;
+                    e.stopPropagation();
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setDragOffset({
+                      x: e.clientX - rect.left,
+                      y: e.clientY - rect.top,
+                    });
+                    setDraggingGroup(group.id);
+                    setSelectedGroup(group.id);
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedGroup(group.id);
+                  }}
+                >
+                  <div 
+                    className="absolute top-3 left-4 flex items-center gap-2 pointer-events-none"
+                    style={{ color: group.color }}
+                  >
+                    <Icon name="Layers" size={18} />
+                    <span className="font-semibold text-sm">{group.name}</span>
+                    {group.description && (
+                      <span className="text-xs opacity-70">— {group.description}</span>
+                    )}
+                  </div>
+                  
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive text-white opacity-0 hover:opacity-100 transition-opacity pointer-events-auto"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteGroup(group.id);
+                    }}
+                  >
+                    <Icon name="X" size={12} />
+                  </Button>
+                  
+                  {['nw', 'ne', 'sw', 'se'].map(corner => (
+                    <div
+                      key={corner}
+                      className="absolute w-3 h-3 bg-white border-2 rounded-full opacity-0 hover:opacity-100 transition-opacity cursor-pointer pointer-events-auto"
+                      style={{
+                        borderColor: group.color,
+                        top: corner.includes('n') ? '-6px' : 'auto',
+                        bottom: corner.includes('s') ? '-6px' : 'auto',
+                        left: corner.includes('w') ? '-6px' : 'auto',
+                        right: corner.includes('e') ? '-6px' : 'auto',
+                        cursor: corner === 'nw' || corner === 'se' ? 'nwse-resize' : 'nesw-resize'
+                      }}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        setResizingGroup({ id: group.id, corner });
+                      }}
+                    />
+                  ))}
+                </div>
+              ))}
+
               {showConnectionLines && (
                 <svg
                   className="absolute inset-0 pointer-events-none"
@@ -888,6 +1105,32 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
                       />
                     </div>
                   </Card>
+                  
+                  <Card className="p-4 space-y-3">
+                    <h4 className="font-semibold text-sm">Группа</h4>
+                    <div>
+                      <Label className="text-xs">Принадлежность к группе</Label>
+                      <Select 
+                        value={selectedElement.groupId?.toString() || 'none'}
+                        onValueChange={(value) => assignElementToGroup(selectedElement.id, value === 'none' ? undefined : parseInt(value))}
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Без группы</SelectItem>
+                          {archGroups.map(group => (
+                            <SelectItem key={group.id} value={group.id.toString()}>
+                              <div className="flex items-center gap-2">
+                                <div className="h-3 w-3 rounded" style={{ backgroundColor: group.color }} />
+                                {group.name}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </Card>
 
                   <div className="flex gap-2">
                     <Button 
@@ -1040,9 +1283,34 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
                     <span className="font-semibold">{connections.length}</span>
                   </div>
                   <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Групп</span>
+                    <span className="font-semibold">{archGroups.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Сложность</span>
                     <Badge variant="outline">Средняя (7.2/10)</Badge>
                   </div>
+                </div>
+              </Card>
+              
+              <Card className="p-4">
+                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                  <Icon name="Layers" size={16} className="text-purple-400" />
+                  Группы и слои
+                </h4>
+                <div className="space-y-2">
+                  {archGroups.map(group => {
+                    const elementsInGroup = archElements.filter(el => el.groupId === group.id).length;
+                    return (
+                      <div key={group.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/20">
+                        <div className="flex items-center gap-2">
+                          <div className="h-4 w-4 rounded" style={{ backgroundColor: group.color }} />
+                          <span className="text-sm font-medium">{group.name}</span>
+                        </div>
+                        <Badge variant="outline">{elementsInGroup} элем.</Badge>
+                      </div>
+                    );
+                  })}
                 </div>
               </Card>
             </TabsContent>
@@ -1336,6 +1604,77 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
                 onClick={() => {
                   setIsAddElementDialogOpen(false);
                   setNewElementName('');
+                }}
+              >
+                Отмена
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={isAddGroupDialogOpen} onOpenChange={setIsAddGroupDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Создать группу элементов</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Название группы</Label>
+              <Input 
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                placeholder="Например: Presentation Layer"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label>Шаблон</Label>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                {GROUP_PRESETS.map((preset, idx) => (
+                  <button
+                    key={idx}
+                    className="flex items-center gap-2 p-3 rounded-lg border-2 border-border hover:border-primary transition-colors text-left"
+                    onClick={() => {
+                      setNewGroupName(preset.name);
+                      setNewGroupColor(preset.color);
+                      setNewGroupLayer(preset.layer);
+                    }}
+                  >
+                    <div className="h-6 w-6 rounded" style={{ backgroundColor: preset.color }} />
+                    <span className="text-sm font-medium">{preset.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <Label>Цвет группы</Label>
+              <div className="flex gap-2 mt-2">
+                {['#8b5cf6', '#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#6366f1', '#ec4899'].map(color => (
+                  <button
+                    key={color}
+                    className={`h-10 w-10 rounded-lg border-2 transition-all ${
+                      newGroupColor === color ? 'border-foreground scale-110' : 'border-border'
+                    }`}
+                    style={{ backgroundColor: color }}
+                    onClick={() => setNewGroupColor(color)}
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="flex gap-3 pt-4">
+              <Button 
+                className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600"
+                onClick={addNewGroup}
+              >
+                Создать группу
+              </Button>
+              <Button 
+                variant="outline" 
+                className="flex-1"
+                onClick={() => {
+                  setIsAddGroupDialogOpen(false);
+                  setNewGroupName('');
                 }}
               >
                 Отмена
