@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card } from '@/components/ui/card';
@@ -85,20 +85,43 @@ const AI_RECOMMENDATIONS = [
   },
 ];
 
-export default function ArchitectureStudio({ elements, onClose }: ArchitectureStudioProps) {
+export default function ArchitectureStudio({ elements: propElements, onClose }: ArchitectureStudioProps) {
+  const canvasRef = useRef<HTMLDivElement>(null);
   const [selectedElement, setSelectedElement] = useState<ArchElement | null>(null);
   const [c4Level, setC4Level] = useState('container');
   const [showAIPanel, setShowAIPanel] = useState(true);
   const [activeTab, setActiveTab] = useState('properties');
   const [zoom, setZoom] = useState(100);
   const [gridEnabled, setGridEnabled] = useState(true);
+  const [draggingElement, setDraggingElement] = useState<number | null>(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [showConnectionLines, setShowConnectionLines] = useState(true);
+  const [hoveredConnection, setHoveredConnection] = useState<number | null>(null);
+  
+  const [archElements, setArchElements] = useState<ArchElement[]>([
+    { id: 0, name: 'Web App', type: 'webapp', x: 100, y: 50, techStack: 'React + TypeScript', layer: 'presentation' },
+    { id: 1, name: 'Mobile App', type: 'mobile', x: 350, y: 50, techStack: 'React Native', layer: 'presentation' },
+    { id: 2, name: 'Admin Panel', type: 'webapp', x: 600, y: 50, techStack: 'Next.js', layer: 'presentation' },
+    { id: 11, name: 'API Gateway', type: 'api-gateway', x: 100, y: 250, techStack: 'Kong', layer: 'business' },
+    { id: 12, name: 'Order Service', type: 'microservice', x: 300, y: 250, techStack: 'Java + Spring', layer: 'business' },
+    { id: 13, name: 'Payment Service', type: 'microservice', x: 500, y: 250, techStack: 'Node.js', layer: 'business' },
+    { id: 14, name: 'Inventory Service', type: 'microservice', x: 700, y: 250, techStack: 'Python', layer: 'business' },
+    { id: 20, name: 'PostgreSQL', type: 'database', x: 150, y: 450, techStack: 'Orders & Users', layer: 'data' },
+    { id: 21, name: 'MongoDB', type: 'database', x: 350, y: 450, techStack: 'Product Catalog', layer: 'data' },
+    { id: 22, name: 'Redis Cache', type: 'cache', x: 550, y: 450, techStack: 'Session Store', layer: 'data' },
+    { id: 23, name: 'Kafka', type: 'queue', x: 750, y: 450, techStack: 'Event Streaming', layer: 'data' },
+  ]);
+  
   const [connections, setConnections] = useState<ArchConnection[]>([
     { id: 1, from: 1, to: 11, protocol: 'HTTPS', type: 'sync', description: 'Загрузка интерфейса' },
     { id: 2, from: 11, to: 12, protocol: 'REST', type: 'sync', description: 'Создание заказа' },
     { id: 3, from: 12, to: 13, protocol: 'REST', type: 'sync', description: 'Обработка платежа' },
     { id: 4, from: 12, to: 20, protocol: 'JDBC', type: 'sync', description: 'Сохранение заказа' },
     { id: 5, from: 13, to: 21, protocol: 'MongoDB Driver', type: 'sync', description: 'Запись транзакции' },
+    { id: 6, from: 0, to: 11, protocol: 'HTTPS', type: 'sync', description: 'Web запросы' },
+    { id: 7, from: 14, to: 22, protocol: 'Redis Protocol', type: 'sync', description: 'Кэш инвентаря' },
   ]);
+  
   const [isDrawingConnection, setIsDrawingConnection] = useState(false);
   const [connectionStart, setConnectionStart] = useState<number | null>(null);
   const [isConnectionDialogOpen, setIsConnectionDialogOpen] = useState(false);
@@ -115,8 +138,15 @@ export default function ArchitectureStudio({ elements, onClose }: ArchitectureSt
     retries: '3',
     auth: 'JWT Token',
   });
+  
+  const [isAddElementDialogOpen, setIsAddElementDialogOpen] = useState(false);
+  const [newElementType, setNewElementType] = useState('microservice');
+  const [newElementName, setNewElementName] = useState('');
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
 
-  const handleElementClick = (element: ArchElement) => {
+  const handleElementClick = (element: ArchElement, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    
     if (isDrawingConnection) {
       if (connectionStart === null) {
         setConnectionStart(element.id);
@@ -126,7 +156,43 @@ export default function ArchitectureStudio({ elements, onClose }: ArchitectureSt
       }
     } else {
       setSelectedElement(element);
+      setActiveTab('properties');
     }
+  };
+
+  const handleMouseDown = (e: React.MouseEvent, elementId: number) => {
+    if (isDrawingConnection) return;
+    e.stopPropagation();
+    
+    const element = archElements.find(el => el.id === elementId);
+    if (!element) return;
+    
+    const rect = e.currentTarget.getBoundingClientRect();
+    setDragOffset({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    });
+    setDraggingElement(elementId);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (draggingElement === null || !canvasRef.current) return;
+    
+    const rect = canvasRef.current.getBoundingClientRect();
+    const newX = (e.clientX - rect.left - dragOffset.x) / (zoom / 100);
+    const newY = (e.clientY - rect.top - dragOffset.y) / (zoom / 100);
+    
+    setArchElements(prev => 
+      prev.map(el => 
+        el.id === draggingElement 
+          ? { ...el, x: Math.max(0, Math.min(newX, 1200)), y: Math.max(0, Math.min(newY, 600)) }
+          : el
+      )
+    );
+  };
+
+  const handleMouseUp = () => {
+    setDraggingElement(null);
   };
 
   const createConnection = () => {
@@ -160,26 +226,198 @@ export default function ArchitectureStudio({ elements, onClose }: ArchitectureSt
     });
   };
 
+  const addNewElement = () => {
+    if (!newElementName.trim()) return;
+    
+    const newElement: ArchElement = {
+      id: Date.now(),
+      type: newElementType,
+      name: newElementName,
+      x: 400,
+      y: 300,
+      techStack: 'New Technology',
+      layer: 'business'
+    };
+    
+    setArchElements(prev => [...prev, newElement]);
+    setNewElementName('');
+    setIsAddElementDialogOpen(false);
+  };
+
+  const deleteElement = (id: number) => {
+    setArchElements(prev => prev.filter(el => el.id !== id));
+    setConnections(prev => prev.filter(conn => conn.from !== id && conn.to !== id));
+    if (selectedElement?.id === id) setSelectedElement(null);
+  };
+
+  const updateElement = (id: number, updates: Partial<ArchElement>) => {
+    setArchElements(prev => prev.map(el => el.id === id ? { ...el, ...updates } : el));
+    if (selectedElement?.id === id) {
+      setSelectedElement(prev => prev ? { ...prev, ...updates } : null);
+    }
+  };
+
   const getElementById = (id: number) => {
-    const mockElements = [
-      { id: 0, name: 'Web App', layer: 'presentation' },
-      { id: 1, name: 'Mobile App', layer: 'presentation' },
-      { id: 2, name: 'Admin Panel', layer: 'presentation' },
-      { id: 11, name: 'API Gateway', layer: 'business' },
-      { id: 12, name: 'Order Service', layer: 'business' },
-      { id: 13, name: 'Payment Service', layer: 'business' },
-      { id: 14, name: 'Inventory Service', layer: 'business' },
-      { id: 20, name: 'PostgreSQL', layer: 'data' },
-      { id: 21, name: 'MongoDB', layer: 'data' },
-      { id: 22, name: 'Redis Cache', layer: 'data' },
-      { id: 23, name: 'Kafka', layer: 'data' },
-    ];
-    return mockElements.find(e => e.id === id);
+    return archElements.find(e => e.id === id);
+  };
+
+  const getElementPosition = (id: number): { x: number, y: number } => {
+    const element = getElementById(id);
+    return element ? { x: element.x + 80, y: element.y + 50 } : { x: 0, y: 0 };
+  };
+
+  const renderConnectionLine = (conn: ArchConnection) => {
+    const from = getElementPosition(conn.from);
+    const to = getElementPosition(conn.to);
+    
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const length = Math.sqrt(dx * dx + dy * dy);
+    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+    
+    const isHovered = hoveredConnection === conn.id;
+    const color = conn.type === 'sync' ? '#3b82f6' : conn.type === 'async' ? '#f59e0b' : '#10b981';
+    
+    return (
+      <g key={conn.id}>
+        <line
+          x1={from.x}
+          y1={from.y}
+          x2={to.x}
+          y2={to.y}
+          stroke={color}
+          strokeWidth={isHovered ? 3 : 2}
+          strokeDasharray={conn.type === 'async' ? '5,5' : '0'}
+          className="transition-all duration-200"
+          onMouseEnter={() => setHoveredConnection(conn.id)}
+          onMouseLeave={() => setHoveredConnection(null)}
+          style={{ cursor: 'pointer' }}
+        >
+          <animate
+            attributeName="stroke-dashoffset"
+            from="0"
+            to={conn.type === 'async' ? "10" : "0"}
+            dur="1s"
+            repeatCount="indefinite"
+          />
+        </line>
+        
+        <polygon
+          points={`${to.x},${to.y} ${to.x - 10},${to.y - 5} ${to.x - 10},${to.y + 5}`}
+          fill={color}
+          transform={`rotate(${angle} ${to.x} ${to.y})`}
+        />
+        
+        {isHovered && (
+          <g>
+            <rect
+              x={(from.x + to.x) / 2 - 60}
+              y={(from.y + to.y) / 2 - 20}
+              width="120"
+              height="40"
+              fill="rgba(0,0,0,0.9)"
+              rx="6"
+            />
+            <text
+              x={(from.x + to.x) / 2}
+              y={(from.y + to.y) / 2 - 5}
+              textAnchor="middle"
+              fill="white"
+              fontSize="11"
+              fontWeight="600"
+            >
+              {conn.protocol}
+            </text>
+            <text
+              x={(from.x + to.x) / 2}
+              y={(from.y + to.y) / 2 + 10}
+              textAnchor="middle"
+              fill="#94a3b8"
+              fontSize="9"
+            >
+              {conn.description}
+            </text>
+          </g>
+        )}
+      </g>
+    );
+  };
+
+  const autoLayout = () => {
+    const layers = {
+      presentation: archElements.filter(el => el.layer === 'presentation'),
+      business: archElements.filter(el => el.layer === 'business'),
+      data: archElements.filter(el => el.layer === 'data'),
+    };
+    
+    const newElements = [...archElements];
+    
+    layers.presentation.forEach((el, idx) => {
+      const element = newElements.find(e => e.id === el.id);
+      if (element) {
+        element.x = 100 + idx * 250;
+        element.y = 50;
+      }
+    });
+    
+    layers.business.forEach((el, idx) => {
+      const element = newElements.find(e => e.id === el.id);
+      if (element) {
+        element.x = 100 + idx * 200;
+        element.y = 250;
+      }
+    });
+    
+    layers.data.forEach((el, idx) => {
+      const element = newElements.find(e => e.id === el.id);
+      if (element) {
+        element.x = 150 + idx * 200;
+        element.y = 450;
+      }
+    });
+    
+    setArchElements(newElements);
+  };
+
+  const exportToDiagram = (format: 'mermaid' | 'plantuml' | 'json') => {
+    if (format === 'mermaid') {
+      let code = 'graph TB\n';
+      archElements.forEach(el => {
+        code += `    ${el.id}["${el.name}<br/>${el.techStack}"]\n`;
+      });
+      code += '\n';
+      connections.forEach(conn => {
+        const arrow = conn.type === 'sync' ? '-->' : '-.->';
+        code += `    ${conn.from} ${arrow}|${conn.protocol}| ${conn.to}\n`;
+      });
+      return code;
+    } else if (format === 'plantuml') {
+      let code = '@startuml\n';
+      archElements.forEach(el => {
+        code += `component "${el.name}" as ${el.id}\n`;
+      });
+      code += '\n';
+      connections.forEach(conn => {
+        code += `${conn.from} --> ${conn.to} : ${conn.protocol}\n`;
+      });
+      code += '@enduml';
+      return code;
+    } else {
+      return JSON.stringify({ elements: archElements, connections }, null, 2);
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+  };
+
+  const getIconForType = (type: string) => {
+    const elementType = ELEMENT_TYPES.find(t => t.id === type);
+    return elementType?.icon || 'Box';
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-background">
-      {/* Header */}
+    <div className="fixed inset-0 z-50 bg-background" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}>
       <div className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-6">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={onClose}>
@@ -205,7 +443,7 @@ export default function ArchitectureStudio({ elements, onClose }: ArchitectureSt
             <Icon name="Users" size={16} className="mr-2" />
             Team Alpha
           </Button>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => setIsExportDialogOpen(true)}>
             <Icon name="Download" size={16} className="mr-2" />
             Экспорт
           </Button>
@@ -216,7 +454,6 @@ export default function ArchitectureStudio({ elements, onClose }: ArchitectureSt
         </div>
       </div>
 
-      {/* Toolbar */}
       <div className="h-14 border-b border-border bg-muted/20 flex items-center justify-between px-6">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
@@ -231,7 +468,7 @@ export default function ArchitectureStudio({ elements, onClose }: ArchitectureSt
           <div className="h-6 w-px bg-border" />
           
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" onClick={() => setIsAddElementDialogOpen(true)}>
               <Icon name="Plus" size={16} className="mr-2" />
               Элемент
             </Button>
@@ -246,7 +483,7 @@ export default function ArchitectureStudio({ elements, onClose }: ArchitectureSt
               <Icon name="Link" size={16} className="mr-2" />
               {isDrawingConnection ? 'Рисую связь...' : 'Связь'}
             </Button>
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" onClick={autoLayout}>
               <Icon name="Wand2" size={16} className="mr-2" />
               Авторасположение
             </Button>
@@ -303,11 +540,20 @@ export default function ArchitectureStudio({ elements, onClose }: ArchitectureSt
             <Icon name="Grid" size={14} className="mr-1" />
             Сетка
           </Button>
+          
+          <Button
+            variant={showConnectionLines ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setShowConnectionLines(!showConnectionLines)}
+            className="h-8"
+          >
+            <Icon name="GitBranch" size={14} className="mr-1" />
+            Связи
+          </Button>
         </div>
       </div>
 
       <div className="flex h-[calc(100vh-120px)]">
-        {/* Left Sidebar - Element Palette */}
         <div className="w-72 border-r border-border bg-sidebar overflow-y-auto">
           <div className="p-4">
             <h3 className="font-semibold mb-4 flex items-center gap-2">
@@ -325,6 +571,10 @@ export default function ArchitectureStudio({ elements, onClose }: ArchitectureSt
                     <button
                       key={type.id}
                       className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-sidebar-accent transition-colors text-sm"
+                      onClick={() => {
+                        setNewElementType(type.id);
+                        setIsAddElementDialogOpen(true);
+                      }}
                     >
                       <Icon name={type.icon as any} size={16} className="text-blue-400" />
                       <span>{type.name}</span>
@@ -342,6 +592,10 @@ export default function ArchitectureStudio({ elements, onClose }: ArchitectureSt
                     <button
                       key={type.id}
                       className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-sidebar-accent transition-colors text-sm"
+                      onClick={() => {
+                        setNewElementType(type.id);
+                        setIsAddElementDialogOpen(true);
+                      }}
                     >
                       <Icon name={type.icon as any} size={16} className="text-green-400" />
                       <span>{type.name}</span>
@@ -359,6 +613,10 @@ export default function ArchitectureStudio({ elements, onClose }: ArchitectureSt
                     <button
                       key={type.id}
                       className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-sidebar-accent transition-colors text-sm"
+                      onClick={() => {
+                        setNewElementType(type.id);
+                        setIsAddElementDialogOpen(true);
+                      }}
                     >
                       <Icon name={type.icon as any} size={16} className="text-orange-400" />
                       <span>{type.name}</span>
@@ -381,7 +639,6 @@ export default function ArchitectureStudio({ elements, onClose }: ArchitectureSt
           </div>
         </div>
 
-        {/* Canvas Area */}
         <div className="flex-1 relative bg-background overflow-hidden">
           {gridEnabled && (
             <div 
@@ -393,167 +650,110 @@ export default function ArchitectureStudio({ elements, onClose }: ArchitectureSt
             />
           )}
 
-          <div className="absolute inset-0 p-8 overflow-auto">
+          <div 
+            ref={canvasRef}
+            className="absolute inset-0 p-8 overflow-auto"
+            onClick={() => {
+              if (!isDrawingConnection) {
+                setSelectedElement(null);
+              }
+            }}
+          >
             <div 
-              className="relative min-h-full min-w-full"
-              style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top left' }}
+              className="relative"
+              style={{ 
+                transform: `scale(${zoom / 100})`, 
+                transformOrigin: 'top left',
+                minWidth: '1400px',
+                minHeight: '700px'
+              }}
             >
-              {/* Example Architecture Visualization */}
-              <div className="space-y-12">
-                {/* Presentation Layer */}
-                <div className="border-2 border-dashed border-purple-500/30 rounded-lg p-6 bg-purple-500/5">
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="h-8 w-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
-                      <Icon name="Layout" size={16} className="text-purple-400" />
-                    </div>
-                    <h3 className="font-semibold text-purple-400">Presentation Layer</h3>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    {[
-                      { name: 'Web App', icon: 'Globe', tech: 'React + TypeScript' },
-                      { name: 'Mobile App', icon: 'Smartphone', tech: 'React Native' },
-                      { name: 'Admin Panel', icon: 'Settings', tech: 'Next.js' },
-                    ].map((item, idx) => (
-                      <Card
-                        key={idx}
-                        className={`p-4 cursor-pointer transition-all group ${
-                          isDrawingConnection 
-                            ? 'hover:border-blue-400 hover:shadow-lg' 
-                            : 'hover:border-purple-400'
-                        } ${
-                          connectionStart === idx ? 'border-blue-400 border-2 shadow-lg' : ''
-                        }`}
-                        onClick={() => handleElementClick({
-                          id: idx,
-                          type: 'webapp',
-                          name: item.name,
-                          x: 0,
-                          y: 0,
-                          techStack: item.tech,
-                          layer: 'presentation'
-                        })}
-                      >
-                        <div className="flex items-center justify-center mb-2">
-                          <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <Icon name={item.icon as any} size={24} className="text-white" />
-                          </div>
-                        </div>
-                        <h4 className="font-semibold text-center text-sm">{item.name}</h4>
-                        <p className="text-xs text-muted-foreground text-center mt-1">{item.tech}</p>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
+              {showConnectionLines && (
+                <svg
+                  className="absolute inset-0 pointer-events-none"
+                  style={{ width: '100%', height: '100%', zIndex: 1 }}
+                >
+                  <defs>
+                    <marker
+                      id="arrowhead"
+                      markerWidth="10"
+                      markerHeight="7"
+                      refX="9"
+                      refY="3.5"
+                      orient="auto"
+                    >
+                      <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6" />
+                    </marker>
+                  </defs>
+                  <g className="pointer-events-auto">
+                    {connections.map(conn => renderConnectionLine(conn))}
+                  </g>
+                </svg>
+              )}
 
-                {/* Business Layer */}
-                <div className="border-2 border-dashed border-green-500/30 rounded-lg p-6 bg-green-500/5">
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="h-8 w-8 rounded-lg bg-green-500/20 flex items-center justify-center">
-                      <Icon name="Blocks" size={16} className="text-green-400" />
+              {archElements.map(element => (
+                <div
+                  key={element.id}
+                  className={`absolute cursor-move transition-all ${
+                    isDrawingConnection 
+                      ? 'hover:ring-2 hover:ring-blue-400' 
+                      : 'hover:ring-2 hover:ring-purple-400'
+                  } ${
+                    connectionStart === element.id ? 'ring-2 ring-blue-400 shadow-lg' : ''
+                  } ${
+                    selectedElement?.id === element.id ? 'ring-2 ring-purple-500 shadow-xl' : ''
+                  } ${
+                    draggingElement === element.id ? 'cursor-grabbing' : ''
+                  }`}
+                  style={{
+                    left: `${element.x}px`,
+                    top: `${element.y}px`,
+                    width: '160px',
+                    zIndex: draggingElement === element.id ? 100 : 10
+                  }}
+                  onMouseDown={(e) => handleMouseDown(e, element.id)}
+                  onClick={(e) => handleElementClick(element, e)}
+                >
+                  <Card className="p-4 bg-card/95 backdrop-blur-sm group">
+                    <div className="flex items-center justify-center mb-2">
+                      <div className={`h-12 w-12 rounded-lg flex items-center justify-center transition-transform group-hover:scale-110 ${
+                        element.layer === 'presentation' ? 'bg-gradient-to-br from-purple-500 to-blue-500' :
+                        element.layer === 'business' ? 'bg-gradient-to-br from-green-500 to-emerald-500' :
+                        'bg-gradient-to-br from-blue-500 to-cyan-500'
+                      }`}>
+                        <Icon name={getIconForType(element.type) as any} size={24} className="text-white" />
+                      </div>
                     </div>
-                    <h3 className="font-semibold text-green-400">Business Layer</h3>
-                  </div>
-                  <div className="grid grid-cols-4 gap-4">
-                    {[
-                      { name: 'API Gateway', icon: 'Network', tech: 'Kong' },
-                      { name: 'Order Service', icon: 'ShoppingCart', tech: 'Java + Spring' },
-                      { name: 'Payment Service', icon: 'CreditCard', tech: 'Node.js' },
-                      { name: 'Inventory Service', icon: 'Package', tech: 'Python' },
-                    ].map((item, idx) => (
-                      <Card
-                        key={idx}
-                        className={`p-4 cursor-pointer transition-all group ${
-                          isDrawingConnection 
-                            ? 'hover:border-blue-400 hover:shadow-lg' 
-                            : 'hover:border-green-400'
-                        } ${
-                          connectionStart === idx + 10 ? 'border-blue-400 border-2 shadow-lg' : ''
-                        }`}
-                        onClick={() => handleElementClick({
-                          id: idx + 10,
-                          type: 'microservice',
-                          name: item.name,
-                          x: 0,
-                          y: 0,
-                          techStack: item.tech,
-                          layer: 'business'
-                        })}
-                      >
-                        <div className="flex items-center justify-center mb-2">
-                          <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <Icon name={item.icon as any} size={24} className="text-white" />
-                          </div>
-                        </div>
-                        <h4 className="font-semibold text-center text-sm">{item.name}</h4>
-                        <p className="text-xs text-muted-foreground text-center mt-1">{item.tech}</p>
-                      </Card>
-                    ))}
-                  </div>
+                    <h4 className="font-semibold text-center text-sm line-clamp-1">{element.name}</h4>
+                    <p className="text-xs text-muted-foreground text-center mt-1 line-clamp-1">{element.techStack}</p>
+                    
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteElement(element.id);
+                      }}
+                    >
+                      <Icon name="X" size={12} />
+                    </Button>
+                  </Card>
                 </div>
-
-                {/* Data Layer */}
-                <div className="border-2 border-dashed border-blue-500/30 rounded-lg p-6 bg-blue-500/5">
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="h-8 w-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                      <Icon name="Database" size={16} className="text-blue-400" />
-                    </div>
-                    <h3 className="font-semibold text-blue-400">Data Layer</h3>
-                  </div>
-                  <div className="grid grid-cols-4 gap-4">
-                    {[
-                      { name: 'PostgreSQL', icon: 'Database', tech: 'Orders & Users' },
-                      { name: 'MongoDB', icon: 'Database', tech: 'Product Catalog' },
-                      { name: 'Redis Cache', icon: 'HardDrive', tech: 'Session Store' },
-                      { name: 'Kafka', icon: 'Inbox', tech: 'Event Streaming' },
-                    ].map((item, idx) => (
-                      <Card
-                        key={idx}
-                        className={`p-4 cursor-pointer transition-all group ${
-                          isDrawingConnection 
-                            ? 'hover:border-blue-400 hover:shadow-lg' 
-                            : 'hover:border-blue-400'
-                        } ${
-                          connectionStart === idx + 20 ? 'border-blue-400 border-2 shadow-lg' : ''
-                        }`}
-                        onClick={() => handleElementClick({
-                          id: idx + 20,
-                          type: 'database',
-                          name: item.name,
-                          x: 0,
-                          y: 0,
-                          techStack: item.tech,
-                          layer: 'data'
-                        })}
-                      >
-                        <div className="flex items-center justify-center mb-2">
-                          <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <Icon name={item.icon as any} size={24} className="text-white" />
-                          </div>
-                        </div>
-                        <h4 className="font-semibold text-center text-sm">{item.name}</h4>
-                        <p className="text-xs text-muted-foreground text-center mt-1">{item.tech}</p>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Connection lines would be drawn here */}
+              ))}
             </div>
           </div>
 
-          {/* Canvas Controls */}
           <div className="absolute bottom-4 left-4 bg-card border border-border rounded-lg p-2 flex items-center gap-2 text-xs">
             <span className="text-muted-foreground">Zoom: {zoom}%</span>
             <div className="h-4 w-px bg-border" />
             <span className="text-muted-foreground">Сетка: {gridEnabled ? 'Вкл' : 'Выкл'}</span>
             <div className="h-4 w-px bg-border" />
-            <span className="text-muted-foreground">Элементов: {elements.length}</span>
+            <span className="text-muted-foreground">Элементов: {archElements.length}</span>
             <div className="h-4 w-px bg-border" />
             <span className="text-muted-foreground">Связей: {connections.length}</span>
           </div>
 
-          {/* Connection Lines Visualization */}
           {connections.length > 0 && (
             <div className="absolute bottom-4 right-4 bg-card border border-border rounded-lg p-3 max-w-xs">
               <div className="flex items-center gap-2 mb-2">
@@ -580,7 +780,6 @@ export default function ArchitectureStudio({ elements, onClose }: ArchitectureSt
           )}
         </div>
 
-        {/* Right Sidebar - Properties & AI */}
         <div className="w-96 border-l border-border bg-sidebar overflow-y-auto">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
             <TabsList className="grid w-full grid-cols-4">
@@ -608,7 +807,7 @@ export default function ArchitectureStudio({ elements, onClose }: ArchitectureSt
                   <div>
                     <div className="flex items-center gap-3 mb-4">
                       <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
-                        <Icon name="Box" size={24} className="text-white" />
+                        <Icon name={getIconForType(selectedElement.type) as any} size={24} className="text-white" />
                       </div>
                       <div className="flex-1">
                         <h3 className="font-semibold">{selectedElement.name}</h3>
@@ -620,27 +819,44 @@ export default function ArchitectureStudio({ elements, onClose }: ArchitectureSt
                   <Card className="p-4 space-y-3">
                     <div>
                       <Label className="text-xs">Название</Label>
-                      <Input value={selectedElement.name} className="mt-1" />
+                      <Input 
+                        value={selectedElement.name} 
+                        onChange={(e) => updateElement(selectedElement.id, { name: e.target.value })}
+                        className="mt-1" 
+                      />
                     </div>
                     <div>
                       <Label className="text-xs">Описание</Label>
                       <Textarea 
                         value={selectedElement.description || 'Обработка заказов и управление корзиной'} 
+                        onChange={(e) => updateElement(selectedElement.id, { description: e.target.value })}
                         className="mt-1 min-h-20"
                       />
                     </div>
                     <div>
                       <Label className="text-xs">Технологический стек</Label>
-                      <Input value={selectedElement.techStack || 'Java 17, Spring Boot 3.1'} className="mt-1" />
+                      <Input 
+                        value={selectedElement.techStack || 'Java 17, Spring Boot 3.1'} 
+                        onChange={(e) => updateElement(selectedElement.id, { techStack: e.target.value })}
+                        className="mt-1" 
+                      />
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <Label className="text-xs">CPU</Label>
-                        <Input value={selectedElement.cpu || '1000m'} className="mt-1" />
+                        <Input 
+                          value={selectedElement.cpu || '1000m'} 
+                          onChange={(e) => updateElement(selectedElement.id, { cpu: e.target.value })}
+                          className="mt-1" 
+                        />
                       </div>
                       <div>
                         <Label className="text-xs">Memory</Label>
-                        <Input value={selectedElement.memory || '512Mi'} className="mt-1" />
+                        <Input 
+                          value={selectedElement.memory || '512Mi'} 
+                          onChange={(e) => updateElement(selectedElement.id, { memory: e.target.value })}
+                          className="mt-1" 
+                        />
                       </div>
                     </div>
                   </Card>
@@ -649,7 +865,10 @@ export default function ArchitectureStudio({ elements, onClose }: ArchitectureSt
                     <h4 className="font-semibold text-sm">Команда и отслеживание</h4>
                     <div>
                       <Label className="text-xs">Ответственная команда</Label>
-                      <Select value={selectedElement.team || 'team-alpha'}>
+                      <Select 
+                        value={selectedElement.team || 'team-alpha'}
+                        onValueChange={(value) => updateElement(selectedElement.id, { team: value })}
+                      >
                         <SelectTrigger className="mt-1">
                           <SelectValue />
                         </SelectTrigger>
@@ -662,18 +881,23 @@ export default function ArchitectureStudio({ elements, onClose }: ArchitectureSt
                     </div>
                     <div>
                       <Label className="text-xs">Репозиторий</Label>
-                      <Input value={selectedElement.repository || 'git@github.com:company/order-service.git'} className="mt-1 font-mono text-xs" />
+                      <Input 
+                        value={selectedElement.repository || 'git@github.com:company/service.git'} 
+                        onChange={(e) => updateElement(selectedElement.id, { repository: e.target.value })}
+                        className="mt-1 font-mono text-xs" 
+                      />
                     </div>
                   </Card>
 
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="flex-1">
-                      <Icon name="Link" size={14} className="mr-1" />
-                      Привязать к User Story
-                    </Button>
-                    <Button variant="outline" size="sm" className="flex-1">
-                      <Icon name="FileText" size={14} className="mr-1" />
-                      Документация
+                    <Button 
+                      variant="destructive" 
+                      size="sm" 
+                      className="flex-1"
+                      onClick={() => deleteElement(selectedElement.id)}
+                    >
+                      <Icon name="Trash2" size={14} className="mr-1" />
+                      Удалить элемент
                     </Button>
                   </div>
                 </>
@@ -805,11 +1029,11 @@ export default function ArchitectureStudio({ elements, onClose }: ArchitectureSt
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Всего элементов</span>
-                    <span className="font-semibold">14</span>
+                    <span className="font-semibold">{archElements.length}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Микросервисов</span>
-                    <span className="font-semibold">6</span>
+                    <span className="font-semibold">{archElements.filter(el => el.type === 'microservice').length}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Связей</span>
@@ -867,7 +1091,6 @@ export default function ArchitectureStudio({ elements, onClose }: ArchitectureSt
         </div>
       </div>
 
-      {/* Connection Configuration Dialog */}
       <Dialog open={isConnectionDialogOpen} onOpenChange={setIsConnectionDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
@@ -1045,37 +1268,6 @@ export default function ArchitectureStudio({ elements, onClose }: ArchitectureSt
               />
             </Card>
 
-            <Card className="p-4 bg-gradient-to-br from-blue-500/10 to-purple-500/10 border-blue-500/30">
-              <h3 className="font-semibold mb-3 flex items-center gap-2">
-                <Icon name="FileCode" size={18} className="text-blue-400" />
-                Автогенерация контракта API
-              </h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Метод:</span>
-                  <Badge variant="outline" className="font-mono">{newConnection.method} {newConnection.endpoint}</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Формат:</span>
-                  <span>{newConnection.requestFormat} → {newConnection.responseFormat}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Безопасность:</span>
-                  <span>{newConnection.auth}</span>
-                </div>
-              </div>
-              <div className="flex gap-2 mt-4">
-                <Button variant="outline" size="sm" className="flex-1">
-                  <Icon name="FileJson" size={14} className="mr-2" />
-                  OpenAPI Spec
-                </Button>
-                <Button variant="outline" size="sm" className="flex-1">
-                  <Icon name="Code" size={14} className="mr-2" />
-                  Mock Endpoint
-                </Button>
-              </div>
-            </Card>
-
             <div className="flex gap-3 pt-4 border-t">
               <Button 
                 variant="outline" 
@@ -1101,7 +1293,115 @@ export default function ArchitectureStudio({ elements, onClose }: ArchitectureSt
         </DialogContent>
       </Dialog>
 
-      {/* Drawing Mode Indicator */}
+      <Dialog open={isAddElementDialogOpen} onOpenChange={setIsAddElementDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Добавить элемент архитектуры</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Тип элемента</Label>
+              <Select value={newElementType} onValueChange={setNewElementType}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ELEMENT_TYPES.map(type => (
+                    <SelectItem key={type.id} value={type.id}>
+                      {type.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Название</Label>
+              <Input 
+                value={newElementName}
+                onChange={(e) => setNewElementName(e.target.value)}
+                placeholder="Например: User Service"
+                className="mt-1"
+              />
+            </div>
+            <div className="flex gap-3 pt-4">
+              <Button 
+                className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600"
+                onClick={addNewElement}
+              >
+                Добавить
+              </Button>
+              <Button 
+                variant="outline" 
+                className="flex-1"
+                onClick={() => {
+                  setIsAddElementDialogOpen(false);
+                  setNewElementName('');
+                }}
+              >
+                Отмена
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Экспорт архитектуры</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Card className="p-4">
+              <h4 className="font-semibold mb-2">Mermaid диаграмма</h4>
+              <pre className="text-xs bg-muted p-3 rounded overflow-x-auto max-h-40">
+                {exportToDiagram('mermaid')}
+              </pre>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="mt-2"
+                onClick={() => copyToClipboard(exportToDiagram('mermaid'))}
+              >
+                <Icon name="Copy" size={14} className="mr-2" />
+                Копировать
+              </Button>
+            </Card>
+            
+            <Card className="p-4">
+              <h4 className="font-semibold mb-2">PlantUML диаграмма</h4>
+              <pre className="text-xs bg-muted p-3 rounded overflow-x-auto max-h-40">
+                {exportToDiagram('plantuml')}
+              </pre>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="mt-2"
+                onClick={() => copyToClipboard(exportToDiagram('plantuml'))}
+              >
+                <Icon name="Copy" size={14} className="mr-2" />
+                Копировать
+              </Button>
+            </Card>
+            
+            <Card className="p-4">
+              <h4 className="font-semibold mb-2">JSON экспорт</h4>
+              <pre className="text-xs bg-muted p-3 rounded overflow-x-auto max-h-40">
+                {exportToDiagram('json')}
+              </pre>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="mt-2"
+                onClick={() => copyToClipboard(exportToDiagram('json'))}
+              >
+                <Icon name="Copy" size={14} className="mr-2" />
+                Копировать
+              </Button>
+            </Card>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {isDrawingConnection && (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 animate-fade-in">
           <Card className="p-4 bg-blue-500/10 border-blue-500/30 backdrop-blur-sm">
