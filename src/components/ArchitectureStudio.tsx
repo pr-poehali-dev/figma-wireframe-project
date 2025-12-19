@@ -275,6 +275,44 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const dragStartPos = useRef({ x: 0, y: 0 });
+  
+  const [history, setHistory] = useState<Array<{
+    elements: ArchElement[];
+    groups: ArchGroup[];
+    connections: ArchConnection[];
+  }>>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+
+  const saveToHistory = () => {
+    const newHistory = history.slice(0, historyIndex + 1);
+    newHistory.push({
+      elements: [...archElements],
+      groups: [...archGroups],
+      connections: [...connections],
+    });
+    setHistory(newHistory.slice(-20));
+    setHistoryIndex(Math.min(newHistory.length - 1, 19));
+  };
+
+  const undo = () => {
+    if (historyIndex > 0) {
+      const prevState = history[historyIndex - 1];
+      setArchElements(prevState.elements);
+      setArchGroups(prevState.groups);
+      setConnections(prevState.connections);
+      setHistoryIndex(historyIndex - 1);
+    }
+  };
+
+  const redo = () => {
+    if (historyIndex < history.length - 1) {
+      const nextState = history[historyIndex + 1];
+      setArchElements(nextState.elements);
+      setArchGroups(nextState.groups);
+      setConnections(nextState.connections);
+      setHistoryIndex(historyIndex + 1);
+    }
+  };
 
   const handleElementClick = (element: ArchElement, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -401,6 +439,9 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
   };
 
   const handleMouseUp = () => {
+    if (isDragging) {
+      saveToHistory();
+    }
     setDraggingElement(null);
     setDraggingGroup(null);
     setResizingGroup(null);
@@ -409,6 +450,8 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
 
   const createConnection = () => {
     if (!pendingConnection) return;
+    
+    saveToHistory();
     
     const newConn: ArchConnection = {
       id: Date.now(),
@@ -441,6 +484,8 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
   const addNewElement = () => {
     if (!newElementName.trim()) return;
     
+    saveToHistory();
+    
     const newElement: ArchElement = {
       id: Date.now(),
       type: newElementType,
@@ -458,6 +503,8 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
   
   const addNewGroup = () => {
     if (!newGroupName.trim()) return;
+    
+    saveToHistory();
     
     const newGroup: ArchGroup = {
       id: Date.now(),
@@ -601,6 +648,126 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
       }, 300);
     }
   };
+
+  useEffect(() => {
+    if (history.length === 0) {
+      setHistory([{
+        elements: [...archElements],
+        groups: [...archGroups],
+        connections: [...connections],
+      }]);
+      setHistoryIndex(0);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      }
+      
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault();
+        redo();
+      }
+      
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
+        if (selectedElement) {
+          saveToHistory();
+          deleteElement(selectedElement.id);
+        } else if (selectedGroup) {
+          saveToHistory();
+          deleteGroup(selectedGroup);
+        }
+      }
+      
+      if (selectedElement && !e.ctrlKey && !e.metaKey) {
+        const step = e.shiftKey ? GRID_SIZE : 5;
+        let dx = 0, dy = 0;
+        
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          dx = -step;
+        } else if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          dx = step;
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          dy = -step;
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          dy = step;
+        }
+        
+        if (dx !== 0 || dy !== 0) {
+          updateElement(selectedElement.id, {
+            x: selectedElement.x + dx,
+            y: selectedElement.y + dy
+          });
+        }
+      }
+      
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        if (isDrawingConnection) {
+          setIsDrawingConnection(false);
+          setConnectionStart(null);
+        } else {
+          setSelectedElement(null);
+          setSelectedGroup(null);
+        }
+      }
+      
+      if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+        e.preventDefault();
+        if (selectedElement) {
+          saveToHistory();
+          const newElement = {
+            ...selectedElement,
+            id: Date.now(),
+            x: selectedElement.x + 20,
+            y: selectedElement.y + 20,
+            name: `${selectedElement.name} (копия)`
+          };
+          setArchElements(prev => [...prev, newElement]);
+        }
+      }
+      
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        e.preventDefault();
+        setIsAddElementDialogOpen(true);
+      }
+      
+      if ((e.ctrlKey || e.metaKey) && e.key === 'g') {
+        e.preventDefault();
+        setGridEnabled(prev => !prev);
+      }
+      
+      if (e.key === '=' || e.key === '+') {
+        e.preventDefault();
+        setZoom(prev => Math.min(200, prev + 10));
+      }
+      
+      if (e.key === '-') {
+        e.preventDefault();
+        setZoom(prev => Math.max(50, prev - 10));
+      }
+      
+      if (e.key === '0') {
+        e.preventDefault();
+        setZoom(100);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedElement, selectedGroup, isDrawingConnection, archElements, history, historyIndex]);
 
   const getElementById = (id: number) => {
     return archElements.find(e => e.id === id);
@@ -788,6 +955,29 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
         </div>
 
         <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={undo}
+              disabled={historyIndex <= 0}
+              title="Отменить (Ctrl+Z)"
+            >
+              <Icon name="Undo2" size={16} />
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={redo}
+              disabled={historyIndex >= history.length - 1}
+              title="Повторить (Ctrl+Y)"
+            >
+              <Icon name="Redo2" size={16} />
+            </Button>
+          </div>
+          
+          <div className="h-6 w-px bg-border" />
+          
           <Badge variant="outline" className="gap-2">
             <div className="h-2 w-2 rounded-full bg-green-400 animate-pulse" />
             Автосохранение
@@ -1043,6 +1233,51 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
                 <Icon name="FolderOpen" size={14} className="mr-2" />
                 Импорт шаблона
               </Button>
+            </div>
+            
+            <div className="mt-6 p-3 bg-muted/20 rounded-lg">
+              <h4 className="text-xs font-semibold mb-2 flex items-center gap-1">
+                <Icon name="Keyboard" size={12} />
+                Горячие клавиши
+              </h4>
+              <div className="space-y-1 text-xs text-muted-foreground">
+                <div className="flex justify-between">
+                  <span>Отменить</span>
+                  <kbd className="px-1.5 py-0.5 bg-background rounded border text-[10px]">Ctrl+Z</kbd>
+                </div>
+                <div className="flex justify-between">
+                  <span>Повторить</span>
+                  <kbd className="px-1.5 py-0.5 bg-background rounded border text-[10px]">Ctrl+Y</kbd>
+                </div>
+                <div className="flex justify-between">
+                  <span>Удалить</span>
+                  <kbd className="px-1.5 py-0.5 bg-background rounded border text-[10px]">Del</kbd>
+                </div>
+                <div className="flex justify-between">
+                  <span>Дублировать</span>
+                  <kbd className="px-1.5 py-0.5 bg-background rounded border text-[10px]">Ctrl+D</kbd>
+                </div>
+                <div className="flex justify-between">
+                  <span>Новый элемент</span>
+                  <kbd className="px-1.5 py-0.5 bg-background rounded border text-[10px]">Ctrl+A</kbd>
+                </div>
+                <div className="flex justify-between">
+                  <span>Сетка</span>
+                  <kbd className="px-1.5 py-0.5 bg-background rounded border text-[10px]">Ctrl+G</kbd>
+                </div>
+                <div className="flex justify-between">
+                  <span>Zoom +/-</span>
+                  <kbd className="px-1.5 py-0.5 bg-background rounded border text-[10px]">+/-</kbd>
+                </div>
+                <div className="flex justify-between">
+                  <span>Сбросить Zoom</span>
+                  <kbd className="px-1.5 py-0.5 bg-background rounded border text-[10px]">0</kbd>
+                </div>
+                <div className="flex justify-between">
+                  <span>Отмена/ESC</span>
+                  <kbd className="px-1.5 py-0.5 bg-background rounded border text-[10px]">Esc</kbd>
+                </div>
+              </div>
             </div>
           </div>
         </div>
