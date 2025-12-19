@@ -562,6 +562,21 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
       }, 300);
     }
   };
+  
+  const jumpToLevel = (levelIndex: number) => {
+    const levels = ['context', 'container', 'component', 'code'];
+    const targetLevel = levels[levelIndex];
+    
+    if (targetLevel && targetLevel !== c4Level) {
+      setDrillDownPath(prev => prev.slice(0, levelIndex));
+      setIsTransitioning(true);
+      setTimeout(() => {
+        setC4Level(targetLevel);
+        switchC4Level(targetLevel, true);
+        setIsTransitioning(false);
+      }, 300);
+    }
+  };
 
   const getElementById = (id: number) => {
     return archElements.find(e => e.id === id);
@@ -783,7 +798,25 @@ export default function ArchitectureStudio({ elements: propElements, onClose }: 
             {drillDownPath.length > 0 && (
               <div className="flex items-center gap-1 text-xs">
                 <Icon name="FolderTree" size={14} className="text-muted-foreground" />
-                <span className="text-muted-foreground">{drillDownPath.join(' > ')}</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => jumpToLevel(0)}
+                    className="text-muted-foreground hover:text-foreground transition-colors underline decoration-dotted"
+                  >
+                    Context
+                  </button>
+                  {drillDownPath.map((pathName, index) => (
+                    <div key={index} className="flex items-center gap-1">
+                      <Icon name="ChevronRight" size={12} className="text-muted-foreground" />
+                      <button
+                        onClick={() => jumpToLevel(index + 1)}
+                        className="text-muted-foreground hover:text-foreground transition-colors underline decoration-dotted"
+                      >
+                        {pathName}
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
