@@ -12,7 +12,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ArchitectureStudio from '@/components/ArchitectureStudio';
-import JarvisAssistant from '@/components/JarvisAssistant';
+import JarvisWelcome from '@/components/JarvisWelcome';
+import JarvisWidget from '@/components/JarvisWidget';
+import { useJarvis } from '@/components/JarvisCore';
 
 const stages = [
   { id: 1, name: 'Vision', icon: 'Lightbulb', color: 'text-yellow-400' },
@@ -102,6 +104,8 @@ interface OKR {
 
 
 export default function Index() {
+  const { setContext, analyzeAction } = useJarvis();
+  const [showWelcome, setShowWelcome] = useState(true);
   const [currentStage, setCurrentStage] = useState(2);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isArchDialogOpen, setIsArchDialogOpen] = useState(false);
@@ -413,6 +417,7 @@ export default function Index() {
       setArchElements(prev => [...prev, createdElement]);
       setNewElement({ type: 'Система', name: '' });
       setIsArchDialogOpen(false);
+      analyzeAction('element-added', { element: createdElement });
     } catch (error) {
       console.error('Error creating element:', error);
     }
@@ -788,8 +793,19 @@ export default function Index() {
 
   const uniqueEpics = Array.from(new Set(userStories.map(s => s.epic).filter(Boolean)));
 
+  useEffect(() => {
+    const stageContexts = ['general', 'vision', 'requirements', 'architecture', 'api', 'documentation'];
+    setContext(stageContexts[currentStage] || 'general');
+    analyzeAction('stage-changed', { stage: currentStage });
+  }, [currentStage]);
+
+  if (showWelcome) {
+    return <JarvisWelcome onComplete={() => setShowWelcome(false)} />;
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <JarvisWidget />
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
@@ -2429,64 +2445,69 @@ export default function Index() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-6 mb-6">
-                  <Card 
-                    className="col-span-2 p-8 bg-gradient-to-br from-purple-500/10 via-blue-500/10 to-cyan-500/10 border-2 border-purple-500/30 cursor-pointer hover:scale-105 transition-transform group"
-                    onClick={() => setIsArchStudioOpen(true)}
-                  >
-                    <div className="flex items-center justify-between mb-6">
-                      <div className="flex items-center gap-4">
-                        <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
-                          <Icon name="Layers" size={32} className="text-white" />
-                        </div>
-                        <div>
-                          <h3 className="text-2xl font-bold mb-1">Architecture Studio Pro</h3>
-                          <p className="text-muted-foreground">Профессиональный редактор архитектуры</p>
-                        </div>
+                <Card 
+                  className="p-8 mb-6 bg-gradient-to-br from-purple-500/10 via-blue-500/10 to-cyan-500/10 border-2 border-purple-500/30 cursor-pointer hover:scale-105 transition-transform group"
+                  onClick={() => setIsArchStudioOpen(true)}
+                >
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-4">
+                      <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
+                        <Icon name="Layers" size={32} className="text-white" />
                       </div>
-                      <Icon name="ArrowRight" size={32} className="text-purple-400 group-hover:translate-x-2 transition-transform" />
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-4 mb-6">
-                      <div className="bg-card/50 backdrop-blur-sm rounded-lg p-4 border border-border/50">
-                        <Icon name="Box" size={24} className="text-purple-400 mb-2" />
-                        <p className="text-sm font-semibold mb-1">C4 Model</p>
-                        <p className="text-xs text-muted-foreground">4 уровня диаграмм</p>
-                      </div>
-                      <div className="bg-card/50 backdrop-blur-sm rounded-lg p-4 border border-border/50">
-                        <Icon name="GitBranch" size={24} className="text-blue-400 mb-2" />
-                        <p className="text-sm font-semibold mb-1">Связи</p>
-                        <p className="text-xs text-muted-foreground">Интерактивные соединения</p>
-                      </div>
-                      <div className="bg-card/50 backdrop-blur-sm rounded-lg p-4 border border-border/50">
-                        <Icon name="Layers" size={24} className="text-cyan-400 mb-2" />
-                        <p className="text-sm font-semibold mb-1">Группировка</p>
-                        <p className="text-xs text-muted-foreground">Логические границы</p>
+                      <div>
+                        <h3 className="text-2xl font-bold mb-1">Architecture Studio Pro</h3>
+                        <p className="text-muted-foreground">Профессиональный редактор архитектуры с AI-ассистентом Джарвисом</p>
                       </div>
                     </div>
+                    <Icon name="ArrowRight" size={32} className="text-purple-400 group-hover:translate-x-2 transition-transform" />
+                  </div>
 
-                    <div className="flex items-center gap-3">
-                      <Badge className="bg-gradient-to-r from-purple-500 to-blue-500 text-white">
-                        <Icon name="Sparkles" size={14} className="mr-1" />
-                        Новое
-                      </Badge>
-                      <Badge variant="outline">
-                        <Icon name="Zap" size={14} className="mr-1" />
-                        Drag & Drop
-                      </Badge>
-                      <Badge variant="outline">
-                        <Icon name="Grid" size={14} className="mr-1" />
-                        Сетка привязки
-                      </Badge>
-                      <Badge variant="outline">
-                        <Icon name="Download" size={14} className="mr-1" />
-                        Экспорт PNG/SVG
-                      </Badge>
+                  <div className="grid grid-cols-4 gap-4 mb-6">
+                    <div className="bg-card/50 backdrop-blur-sm rounded-lg p-4 border border-border/50">
+                      <Icon name="Box" size={24} className="text-purple-400 mb-2" />
+                      <p className="text-sm font-semibold mb-1">C4 Model</p>
+                      <p className="text-xs text-muted-foreground">4 уровня диаграмм</p>
                     </div>
-                  </Card>
+                    <div className="bg-card/50 backdrop-blur-sm rounded-lg p-4 border border-border/50">
+                      <Icon name="GitBranch" size={24} className="text-blue-400 mb-2" />
+                      <p className="text-sm font-semibold mb-1">Связи</p>
+                      <p className="text-xs text-muted-foreground">Интерактивные соединения</p>
+                    </div>
+                    <div className="bg-card/50 backdrop-blur-sm rounded-lg p-4 border border-border/50">
+                      <Icon name="Layers" size={24} className="text-cyan-400 mb-2" />
+                      <p className="text-sm font-semibold mb-1">Группировка</p>
+                      <p className="text-xs text-muted-foreground">Логические границы</p>
+                    </div>
+                    <div className="bg-card/50 backdrop-blur-sm rounded-lg p-4 border border-border/50">
+                      <Icon name="Bot" size={24} className="text-green-400 mb-2" />
+                      <p className="text-sm font-semibold mb-1">AI Джарвис</p>
+                      <p className="text-xs text-muted-foreground">Голосовой помощник</p>
+                    </div>
+                  </div>
 
-                  <JarvisAssistant />
-                </div>
+                  <div className="flex items-center gap-3">
+                    <Badge className="bg-gradient-to-r from-purple-500 to-blue-500 text-white">
+                      <Icon name="Sparkles" size={14} className="mr-1" />
+                      Новое
+                    </Badge>
+                    <Badge variant="outline">
+                      <Icon name="Zap" size={14} className="mr-1" />
+                      Drag & Drop
+                    </Badge>
+                    <Badge variant="outline">
+                      <Icon name="Grid" size={14} className="mr-1" />
+                      Сетка привязки
+                    </Badge>
+                    <Badge variant="outline">
+                      <Icon name="Download" size={14} className="mr-1" />
+                      Экспорт PNG/SVG
+                    </Badge>
+                    <Badge variant="outline">
+                      <Icon name="Mic" size={14} className="mr-1" />
+                      Голосовое управление
+                    </Badge>
+                  </div>
+                </Card>
 
                 <div className="grid grid-cols-2 gap-6">
                   <Card className="p-6">

@@ -11,6 +11,7 @@ import Icon from '@/components/ui/icon';
 import ArchitectureCanvas from './ArchitectureCanvas';
 import ArchitectureSidebar from './ArchitectureSidebar';
 import ArchitectureProperties from './ArchitectureProperties';
+import { useJarvis } from '@/components/JarvisCore';
 
 // Export interfaces for sub-components
 export interface ArchElement {
@@ -191,6 +192,9 @@ const C4_CODE_DATA = {
 const GRID_SIZE = 20;
 
 export default function ArchitectureStudio({ elements, onClose }: ArchitectureStudioProps) {
+  // Jarvis integration
+  const { setContext, analyzeAction } = useJarvis();
+  
   // State management
   const [archElements, setArchElements] = useState<ArchElement[]>(C4_CONTEXT_DATA.elements);
   const [connections, setConnections] = useState<ArchConnection[]>(C4_CONTEXT_DATA.connections);
@@ -239,6 +243,12 @@ export default function ArchitectureStudio({ elements, onClose }: ArchitectureSt
   const [historyIndex, setHistoryIndex] = useState(-1);
 
   const canvasRef = useRef<HTMLDivElement>(null);
+
+  // Set Jarvis context on mount
+  useEffect(() => {
+    setContext('studio');
+    return () => setContext('general');
+  }, []);
 
   // Helper functions
   const getIconForType = (type: string): string => {
@@ -439,6 +449,7 @@ export default function ArchitectureStudio({ elements, onClose }: ArchitectureSt
     setNewElementTech('');
     setIsAddElementDialogOpen(false);
     saveToHistory();
+    analyzeAction('element-added', { element: newElement });
   };
 
   const addConnection = () => {
@@ -459,6 +470,7 @@ export default function ArchitectureStudio({ elements, onClose }: ArchitectureSt
       description: ''
     });
     saveToHistory();
+    analyzeAction('element-connected', { connection: newConnection });
   };
 
   const addGroup = () => {
