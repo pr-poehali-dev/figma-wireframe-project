@@ -20,6 +20,7 @@ interface JarvisContextType {
   speak: (text: string) => void;
   stopSpeaking: () => void;
   analyzeAction: (action: string, data?: any) => void;
+  activate: () => Promise<void>;
 }
 
 const JarvisContext = createContext<JarvisContextType | undefined>(undefined);
@@ -340,6 +341,16 @@ export function JarvisProvider({ children }: JarvisProviderProps) {
     }
   }, []);
 
+  const activateJarvis = async () => {
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      setIsActive(true);
+    } catch (error) {
+      console.error('Microphone access denied:', error);
+      throw error;
+    }
+  };
+
   const value: JarvisContextType = {
     isActive,
     isListening,
@@ -351,11 +362,12 @@ export function JarvisProvider({ children }: JarvisProviderProps) {
     setContext,
     speak,
     stopSpeaking,
-    analyzeAction
+    analyzeAction,
+    activate: activateJarvis
   };
 
   useEffect(() => {
-    setIsActive(true);
+    activateJarvis().catch(() => {});
   }, []);
 
   return (

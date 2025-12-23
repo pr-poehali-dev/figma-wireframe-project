@@ -10,44 +10,58 @@ export default function JarvisWelcome({ onComplete }: JarvisWelcomeProps) {
   const [pulse, setPulse] = useState(0);
 
   useEffect(() => {
-    const utterance = new SpeechSynthesisUtterance(
-      'Добро пожаловать в Архитектор. Меня зовут Джарвис, и я буду сопровождать вас на всём протяжении проектирования, приводя к самому лучшему результату.'
-    );
-    utterance.lang = 'ru-RU';
-    utterance.rate = 1.25;
-    utterance.pitch = 0.75;
-    utterance.volume = 1.0;
+    const loadVoicesAndSpeak = () => {
+      const utterance = new SpeechSynthesisUtterance(
+        'Добро пожаловать в Архитектор. Меня зовут Джарвис, и я буду сопровождать вас на всём протяжении проектирования.'
+      );
+      utterance.lang = 'ru-RU';
+      utterance.rate = 1.3;
+      utterance.pitch = 0.7;
+      utterance.volume = 1.0;
 
-    const voices = window.speechSynthesis.getVoices();
-    const russianVoice = voices.find(voice => 
-      voice.lang.startsWith('ru') && voice.name.toLowerCase().includes('male')
-    ) || voices.find(voice => voice.lang.startsWith('ru'));
-    
-    if (russianVoice) {
-      utterance.voice = russianVoice;
-    }
+      const voices = window.speechSynthesis.getVoices();
+      const russianVoice = voices.find(voice => 
+        voice.lang.startsWith('ru') && voice.name.toLowerCase().includes('male')
+      ) || voices.find(voice => voice.lang.startsWith('ru'));
+      
+      if (russianVoice) {
+        utterance.voice = russianVoice;
+      }
 
-    utterance.onstart = () => {
-      setStage('speaking');
-    };
+      utterance.onstart = () => {
+        setStage('speaking');
+      };
 
-    utterance.onend = () => {
-      setTimeout(() => {
-        setStage('fading');
-        setTimeout(onComplete, 400);
-      }, 200);
-    };
+      utterance.onend = () => {
+        setTimeout(() => {
+          setStage('fading');
+          setTimeout(onComplete, 300);
+        }, 100);
+      };
 
-    const timer = setTimeout(() => {
+      utterance.onerror = () => {
+        setTimeout(() => {
+          setStage('fading');
+          setTimeout(onComplete, 300);
+        }, 100);
+      };
+
       window.speechSynthesis.speak(utterance);
-    }, 500);
+    };
 
     const pulseInterval = setInterval(() => {
       setPulse(prev => (prev + 1) % 3);
     }, 150);
 
+    if (window.speechSynthesis.getVoices().length > 0) {
+      setTimeout(loadVoicesAndSpeak, 300);
+    } else {
+      window.speechSynthesis.onvoiceschanged = () => {
+        setTimeout(loadVoicesAndSpeak, 300);
+      };
+    }
+
     return () => {
-      clearTimeout(timer);
       clearInterval(pulseInterval);
       window.speechSynthesis.cancel();
     };

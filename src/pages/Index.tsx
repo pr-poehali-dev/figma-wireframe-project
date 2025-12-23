@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ArchitectureStudio from '@/components/ArchitectureStudio';
 import JarvisWelcome from '@/components/JarvisWelcome';
 import JarvisWidget from '@/components/JarvisWidget';
+import JarvisActivation from '@/components/JarvisActivation';
 import { useJarvis } from '@/components/JarvisCore';
 
 const stages = [
@@ -104,10 +105,11 @@ interface OKR {
 
 
 export default function Index() {
-  const { setContext, analyzeAction } = useJarvis();
+  const { setContext, analyzeAction, isActive } = useJarvis();
   const [showWelcome, setShowWelcome] = useState(() => {
     return !localStorage.getItem('jarvis_welcomed');
   });
+  const [showActivation, setShowActivation] = useState(false);
   const [currentStage, setCurrentStage] = useState(2);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isArchDialogOpen, setIsArchDialogOpen] = useState(false);
@@ -803,8 +805,13 @@ export default function Index() {
   if (showWelcome) {
     return <JarvisWelcome onComplete={() => {
       setShowWelcome(false);
+      setShowActivation(true);
       localStorage.setItem('jarvis_welcomed', 'true');
     }} />;
+  }
+
+  if (showActivation && !isActive) {
+    return <JarvisActivation onActivate={() => setShowActivation(false)} />;
   }
 
   return (
