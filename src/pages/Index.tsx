@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ArchitectureStudio from '@/components/ArchitectureStudio';
+import JarvisAssistant from '@/components/JarvisAssistant';
 
 const stages = [
   { id: 1, name: 'Vision', icon: 'Lightbulb', color: 'text-yellow-400' },
@@ -2422,162 +2423,146 @@ export default function Index() {
             {currentStage === 3 && (
               <div>
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-3xl font-bold">C4 Model - Архитектурный конструктор</h2>
-                  <div className="flex gap-2">
-                    <Button 
-                      className="bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90"
-                      onClick={() => setIsArchStudioOpen(true)}
-                    >
-                      <Icon name="Sparkles" size={18} className="mr-2" />
-                      Architecture Studio Pro
-                    </Button>
-                    <Button variant="outline">
-                      <Icon name="Download" size={18} className="mr-2" />
-                      Экспорт
-                    </Button>
-                    <Dialog open={isArchDialogOpen} onOpenChange={setIsArchDialogOpen}>
-                      <DialogTrigger asChild>
-                        <Button variant="outline">
-                          <Icon name="Plus" size={18} className="mr-2" />
-                          Добавить элемент
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Новый архитектурный элемент</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4 py-4">
-                          <div className="space-y-2">
-                            <Label>Тип элемента</Label>
-                            <Select value={newElement.type} onValueChange={(value) => setNewElement(prev => ({ ...prev, type: value }))}>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Система">Система</SelectItem>
-                                <SelectItem value="Пользователь">Пользователь</SelectItem>
-                                <SelectItem value="Внешняя система">Внешняя система</SelectItem>
-                                <SelectItem value="База данных">База данных</SelectItem>
-                                <SelectItem value="Микросервис">Микросервис</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Название</Label>
-                            <Input 
-                              placeholder="Например: API Gateway"
-                              value={newElement.name}
-                              onChange={(e) => setNewElement(prev => ({ ...prev, name: e.target.value }))}
-                            />
-                          </div>
-                          <div className="flex gap-3 pt-4">
-                            <Button 
-                              className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600"
-                              onClick={createArchElement}
-                            >
-                              Создать
-                            </Button>
-                            <Button variant="outline" className="flex-1" onClick={() => setIsArchDialogOpen(false)}>
-                              Отмена
-                            </Button>
-                          </div>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
+                  <div>
+                    <h2 className="text-3xl font-bold mb-2">Архитектура системы</h2>
+                    <p className="text-muted-foreground">Проектируй с AI-ассистентом Джарвисом</p>
                   </div>
                 </div>
 
-                <Tabs value={selectedCanvas} onValueChange={setSelectedCanvas} className="mb-6">
-                  <TabsList className="grid w-full max-w-md grid-cols-3">
-                    <TabsTrigger value="context">Контекст</TabsTrigger>
-                    <TabsTrigger value="container">Контейнеры</TabsTrigger>
-                    <TabsTrigger value="component">Компоненты</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-
-                <div className="grid grid-cols-4 gap-6">
-                  <Card className="col-span-3 p-6 min-h-[600px] bg-gradient-to-br from-card to-muted/20">
-                    <div 
-                      ref={canvasRef}
-                      className="relative h-full border-2 border-dashed border-border/50 rounded-lg p-8"
-                      onMouseMove={handleMouseMove}
-                      onMouseUp={handleMouseUp}
-                      onMouseLeave={handleMouseUp}
-                    >
-                      {archElements.map((element) => (
-                        <div
-                          key={element.id}
-                          className={`absolute bg-card border-2 rounded-lg p-4 shadow-lg transition-all cursor-move select-none ${
-                            draggingId === element.id 
-                              ? 'border-blue-500 shadow-blue-500/30 scale-105 z-50' 
-                              : 'border-purple-500/50 hover:shadow-purple-500/20 hover-scale'
-                          }`}
-                          style={{ left: element.x, top: element.y, width: '160px' }}
-                          onMouseDown={(e) => handleMouseDown(e, element.id)}
-                        >
-                          <div className="flex items-center gap-2 mb-2 pointer-events-none">
-                            <Icon name={element.type === 'Пользователь' ? 'User' : element.type === 'Система' ? 'Box' : element.type === 'База данных' ? 'Database' : 'Globe'} size={20} className="text-purple-400" />
-                            <span className="text-xs text-muted-foreground">{element.type}</span>
-                          </div>
-                          <h4 className="font-semibold pointer-events-none">{element.name}</h4>
+                <div className="grid grid-cols-3 gap-6 mb-6">
+                  <Card 
+                    className="col-span-2 p-8 bg-gradient-to-br from-purple-500/10 via-blue-500/10 to-cyan-500/10 border-2 border-purple-500/30 cursor-pointer hover:scale-105 transition-transform group"
+                    onClick={() => setIsArchStudioOpen(true)}
+                  >
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center gap-4">
+                        <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
+                          <Icon name="Layers" size={32} className="text-white" />
                         </div>
-                      ))}
-                      
-                      <svg className="absolute inset-0 pointer-events-none">
-                        <defs>
-                          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                            <polygon points="0 0, 10 3.5, 0 7" fill="hsl(262 83% 58%)" />
-                          </marker>
-                        </defs>
-                        {archElements.length >= 2 && (
-                          <line 
-                            x1={archElements[0].x + 160} 
-                            y1={archElements[0].y + 50} 
-                            x2={archElements[1].x} 
-                            y2={archElements[1].y + 50} 
-                            stroke="hsl(262 83% 58%)" 
-                            strokeWidth="2" 
-                            markerEnd="url(#arrowhead)" 
-                          />
-                        )}
-                        {archElements.length >= 3 && (
-                          <line 
-                            x1={archElements[1].x + 80} 
-                            y1={archElements[1].y + 100} 
-                            x2={archElements[2].x + 80} 
-                            y2={archElements[2].y} 
-                            stroke="hsl(262 83% 58%)" 
-                            strokeWidth="2" 
-                            markerEnd="url(#arrowhead)" 
-                          />
-                        )}
-                        {archElements.length >= 4 && (
-                          <line 
-                            x1={archElements[1].x + 160} 
-                            y1={archElements[1].y + 50} 
-                            x2={archElements[3].x} 
-                            y2={archElements[3].y + 50} 
-                            stroke="hsl(262 83% 58%)" 
-                            strokeWidth="2" 
-                            markerEnd="url(#arrowhead)" 
-                          />
-                        )}
-                      </svg>
+                        <div>
+                          <h3 className="text-2xl font-bold mb-1">Architecture Studio Pro</h3>
+                          <p className="text-muted-foreground">Профессиональный редактор архитектуры</p>
+                        </div>
+                      </div>
+                      <Icon name="ArrowRight" size={32} className="text-purple-400 group-hover:translate-x-2 transition-transform" />
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4 mb-6">
+                      <div className="bg-card/50 backdrop-blur-sm rounded-lg p-4 border border-border/50">
+                        <Icon name="Box" size={24} className="text-purple-400 mb-2" />
+                        <p className="text-sm font-semibold mb-1">C4 Model</p>
+                        <p className="text-xs text-muted-foreground">4 уровня диаграмм</p>
+                      </div>
+                      <div className="bg-card/50 backdrop-blur-sm rounded-lg p-4 border border-border/50">
+                        <Icon name="GitBranch" size={24} className="text-blue-400 mb-2" />
+                        <p className="text-sm font-semibold mb-1">Связи</p>
+                        <p className="text-xs text-muted-foreground">Интерактивные соединения</p>
+                      </div>
+                      <div className="bg-card/50 backdrop-blur-sm rounded-lg p-4 border border-border/50">
+                        <Icon name="Layers" size={24} className="text-cyan-400 mb-2" />
+                        <p className="text-sm font-semibold mb-1">Группировка</p>
+                        <p className="text-xs text-muted-foreground">Логические границы</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <Badge className="bg-gradient-to-r from-purple-500 to-blue-500 text-white">
+                        <Icon name="Sparkles" size={14} className="mr-1" />
+                        Новое
+                      </Badge>
+                      <Badge variant="outline">
+                        <Icon name="Zap" size={14} className="mr-1" />
+                        Drag & Drop
+                      </Badge>
+                      <Badge variant="outline">
+                        <Icon name="Grid" size={14} className="mr-1" />
+                        Сетка привязки
+                      </Badge>
+                      <Badge variant="outline">
+                        <Icon name="Download" size={14} className="mr-1" />
+                        Экспорт PNG/SVG
+                      </Badge>
                     </div>
                   </Card>
 
-                  <Card className="p-4">
-                    <h3 className="font-semibold mb-4">Палитра элементов</h3>
-                    <div className="space-y-2">
-                      {['Система', 'Пользователь', 'Внешняя система', 'База данных', 'Микросервис'].map((type) => (
-                        <button
-                          key={type}
-                          className="w-full flex items-center gap-3 p-3 rounded-lg bg-muted hover:bg-muted/80 transition-colors text-left"
-                        >
-                          <Icon name={type === 'Пользователь' ? 'User' : type === 'База данных' ? 'Database' : 'Box'} size={18} className="text-blue-400" />
-                          <span className="text-sm">{type}</span>
-                        </button>
-                      ))}
+                  <JarvisAssistant />
+                </div>
+
+                <div className="grid grid-cols-2 gap-6">
+                  <Card className="p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <Icon name="BookOpen" size={24} className="text-purple-400" />
+                      <h3 className="text-xl font-semibold">Быстрый старт</h3>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                        <div className="h-8 w-8 rounded-full bg-purple-500/20 flex items-center justify-center flex-shrink-0">
+                          <span className="text-sm font-bold text-purple-400">1</span>
+                        </div>
+                        <div>
+                          <p className="font-semibold mb-1">Открой Studio Pro</p>
+                          <p className="text-sm text-muted-foreground">Нажми на карточку выше для перехода</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                        <div className="h-8 w-8 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                          <span className="text-sm font-bold text-blue-400">2</span>
+                        </div>
+                        <div>
+                          <p className="font-semibold mb-1">Добавь компоненты</p>
+                          <p className="text-sm text-muted-foreground">Используй левую панель для drag & drop</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                        <div className="h-8 w-8 rounded-full bg-cyan-500/20 flex items-center justify-center flex-shrink-0">
+                          <span className="text-sm font-bold text-cyan-400">3</span>
+                        </div>
+                        <div>
+                          <p className="font-semibold mb-1">Проси помощи у Джарвиса</p>
+                          <p className="text-sm text-muted-foreground">Голосовой помощник справа подскажет</p>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+
+                  <Card className="p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <Icon name="TrendingUp" size={24} className="text-blue-400" />
+                      <h3 className="text-xl font-semibold">Возможности</h3>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        <Icon name="Check" size={20} className="text-green-400" />
+                        <span className="text-sm">C4 Model (Context, Container, Component, Code)</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Icon name="Check" size={20} className="text-green-400" />
+                        <span className="text-sm">Drag & Drop интерфейс</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Icon name="Check" size={20} className="text-green-400" />
+                        <span className="text-sm">Интерактивные связи между элементами</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Icon name="Check" size={20} className="text-green-400" />
+                        <span className="text-sm">Группировка компонентов</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Icon name="Check" size={20} className="text-green-400" />
+                        <span className="text-sm">Undo/Redo история действий</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Icon name="Check" size={20} className="text-green-400" />
+                        <span className="text-sm">Экспорт в PNG/SVG форматы</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Icon name="Check" size={20} className="text-green-400" />
+                        <span className="text-sm">AI-ассистент Джарвис с голосовым интерфейсом</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Icon name="Check" size={20} className="text-green-400" />
+                        <span className="text-sm">Метрики и анализ архитектуры</span>
+                      </div>
                     </div>
                   </Card>
                 </div>
