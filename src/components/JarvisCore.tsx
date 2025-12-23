@@ -366,9 +366,7 @@ export function JarvisProvider({ children }: JarvisProviderProps) {
     activate: activateJarvis
   };
 
-  useEffect(() => {
-    activateJarvis().catch(() => {});
-  }, []);
+
 
   return (
     <JarvisContext.Provider value={value}>

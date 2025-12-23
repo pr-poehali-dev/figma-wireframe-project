@@ -105,12 +105,10 @@ interface OKR {
 
 
 export default function Index() {
-  const { setContext, analyzeAction, isActive } = useJarvis();
-  const [showWelcome, setShowWelcome] = useState(() => {
-    return !localStorage.getItem('jarvis_welcomed');
-  });
+  const { setContext, analyzeAction, isActive, speak, addMessage } = useJarvis();
+  const [showWelcome, setShowWelcome] = useState(true);
   const [showActivation, setShowActivation] = useState(false);
-  const [currentStage, setCurrentStage] = useState(2);
+  const [currentStage, setCurrentStage] = useState(1);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isArchDialogOpen, setIsArchDialogOpen] = useState(false);
   const [selectedCanvas, setSelectedCanvas] = useState('context');
@@ -800,13 +798,28 @@ export default function Index() {
   useEffect(() => {
     const stageContexts = ['general', 'vision', 'requirements', 'architecture', 'api', 'documentation'];
     setContext(stageContexts[currentStage] || 'general');
-  }, [currentStage, setContext]);
+    
+    const stageIntros: Record<number, string> = {
+      1: 'Раздел Vision - здесь определяем видение проекта, цели, метрики успеха и OKR. Формируем стратегию продукта.',
+      2: 'Раздел Требования - создаем User Stories, Use Cases и критерии приемки. Детализируем функциональность.',
+      3: 'Раздел Архитектура - проектируем C4 диаграммы, выбираем компоненты и технологии. Строим систему.',
+      4: 'Раздел API Design - определяем endpoints, структуру запросов и ответов. Проектируем интерфейсы.',
+      5: 'Раздел Документация - создаем описание системы, гайды и спецификации. Фиксируем решения.'
+    };
+    
+    const intro = stageIntros[currentStage];
+    if (intro && isActive) {
+      setTimeout(() => {
+        addMessage(intro, 'jarvis', stageContexts[currentStage]);
+        speak(intro);
+      }, 500);
+    }
+  }, [currentStage]);
 
   if (showWelcome) {
     return <JarvisWelcome onComplete={() => {
       setShowWelcome(false);
       setShowActivation(true);
-      localStorage.setItem('jarvis_welcomed', 'true');
     }} />;
   }
 
@@ -836,9 +849,18 @@ export default function Index() {
                 <Icon name="Users" size={14} className="mr-1" />
                 5 участников
               </Badge>
-              <Button size="sm" className="bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90">
-                <Icon name="Sparkles" size={16} className="mr-2" />
-                AI Assist
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={() => {
+                  if (confirm('Выйти из платформы? Вы вернетесь к экрану приветствия Джарвиса.')) {
+                    setShowWelcome(true);
+                    setShowActivation(false);
+                  }
+                }}
+              >
+                <Icon name="LogOut" size={16} className="mr-2" />
+                Выход
               </Button>
             </div>
           </div>
