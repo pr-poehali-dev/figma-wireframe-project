@@ -12,6 +12,7 @@ interface JarvisContextType {
   isActive: boolean;
   isListening: boolean;
   isSpeaking: boolean;
+  isThinking: boolean;
   messages: JarvisMessage[];
   currentContext: string;
   addMessage: (content: string, role: 'user' | 'jarvis', context?: string) => void;
@@ -33,10 +34,13 @@ interface JarvisProviderProps {
   children: ReactNode;
 }
 
+const JARVIS_AI_URL = 'https://functions.poehali.dev/cb50a2d4-5342-46aa-b0e1-9e88cc6ae0da';
+
 export function JarvisProvider({ children }: JarvisProviderProps) {
   const [isActive, setIsActive] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
   const [messages, setMessages] = useState<JarvisMessage[]>([]);
   const [currentContext, setCurrentContext] = useState('general');
   
@@ -44,6 +48,7 @@ export function JarvisProvider({ children }: JarvisProviderProps) {
   const synthesisRef = useRef<SpeechSynthesisUtterance | null>(null);
   const lastTranscriptRef = useRef('');
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const processingRef = useRef(false);
 
   useEffect(() => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -65,9 +70,10 @@ export function JarvisProvider({ children }: JarvisProviderProps) {
           .join('');
 
         if (event.results[event.results.length - 1].isFinal) {
-          if (transcript.trim() && transcript !== lastTranscriptRef.current) {
-            lastTranscriptRef.current = transcript;
-            handleUserSpeech(transcript);
+          const finalTranscript = transcript.trim();
+          if (finalTranscript && finalTranscript !== lastTranscriptRef.current && !processingRef.current) {
+            lastTranscriptRef.current = finalTranscript;
+            handleUserSpeech(finalTranscript);
           }
         }
 
@@ -75,35 +81,33 @@ export function JarvisProvider({ children }: JarvisProviderProps) {
           clearTimeout(silenceTimerRef.current);
         }
         silenceTimerRef.current = setTimeout(() => {
-          if (!isSpeaking) {
+          if (!isSpeaking && !isThinking) {
             recognitionRef.current?.stop();
             setTimeout(() => {
-              if (isActive && !isSpeaking) {
+              if (isActive && !isSpeaking && !isThinking) {
                 recognitionRef.current?.start();
               }
-            }, 100);
+            }, 50);
           }
-        }, 2000);
+        }, 1500);
       };
 
       recognitionRef.current.onerror = (event: any) => {
         if (event.error === 'no-speech' || event.error === 'aborted') {
           setTimeout(() => {
-            if (isActive && !isSpeaking) {
+            if (isActive && !isSpeaking && !isThinking) {
               recognitionRef.current?.start();
             }
-          }, 100);
-        } else {
-          console.error('Speech recognition error:', event.error);
+          }, 50);
         }
       };
 
       recognitionRef.current.onend = () => {
         setIsListening(false);
-        if (isActive && !isSpeaking) {
+        if (isActive && !isSpeaking && !isThinking) {
           setTimeout(() => {
             recognitionRef.current?.start();
-          }, 100);
+          }, 50);
         }
       };
     }
@@ -120,128 +124,69 @@ export function JarvisProvider({ children }: JarvisProviderProps) {
   }, []);
 
   useEffect(() => {
-    if (isActive && !isSpeaking) {
+    if (isActive && !isSpeaking && !isThinking) {
       recognitionRef.current?.start();
     } else if (!isActive) {
       recognitionRef.current?.stop();
     }
-  }, [isActive, isSpeaking]);
+  }, [isActive, isSpeaking, isThinking]);
 
-  const handleUserSpeech = (transcript: string) => {
+  const handleUserSpeech = async (transcript: string) => {
+    if (processingRef.current) return;
+    processingRef.current = true;
+
     addMessage(transcript, 'user');
-    const response = generateResponse(transcript, currentContext);
-    setTimeout(() => {
-      addMessage(response, 'jarvis', currentContext);
-      speak(response);
-    }, 500);
+    setIsThinking(true);
+    recognitionRef.current?.stop();
+
+    try {
+      const response = await fetch(JARVIS_AI_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: transcript,
+          context: currentContext,
+          history: messages.slice(-4)
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.response) {
+        addMessage(data.response, 'jarvis', currentContext);
+        speak(data.response);
+      } else {
+        const fallback = getFallbackResponse(transcript, currentContext);
+        addMessage(fallback, 'jarvis', currentContext);
+        speak(fallback);
+      }
+    } catch (error) {
+      const fallback = getFallbackResponse(transcript, currentContext);
+      addMessage(fallback, 'jarvis', currentContext);
+      speak(fallback);
+    } finally {
+      setIsThinking(false);
+      processingRef.current = false;
+    }
   };
 
-  const generateResponse = (userInput: string, context: string): string => {
-    const input = userInput.toLowerCase();
-
-    const contextResponses: Record<string, Record<string, string[]>> = {
-      welcome: {
-        default: [
-          'Добро пожаловать! Я Джарвис, ваш персональный архитектурный ассистент. Я буду с вами на протяжении всего процесса проектирования.',
-          'Приветствую! Меня зовут Джарвис. Я помогу вам создать лучшую архитектуру для вашего проекта.'
-        ]
-      },
-      architecture: {
-        help: [
-          'Конечно! Для начала определите контекст системы - это самый высокий уровень C4 модели. Кто будет пользователями?',
-          'Давайте начнем с контекстной диаграммы. Какие внешние системы будут взаимодействовать с вашим приложением?'
-        ],
-        add: [
-          'Отличная идея добавить этот компонент! Подумайте о его ответственности. Какую одну задачу он должен решать?',
-          'Хороший выбор! А как этот элемент будет взаимодействовать с остальной системой?'
-        ],
-        connect: [
-          'Связь установлена! Не забудьте указать протокол взаимодействия. REST API? gRPC? Message Queue?',
-          'Отлично! Подумайте о том, синхронное это взаимодействие или асинхронное?'
-        ],
-        microservice: [
-          'Микросервисы - отличный выбор для масштабируемости! Но помните про сложность в управлении. Вы готовы к распределенной трассировке?',
-          'Хороший паттерн! Подумайте об API Gateway для единой точки входа и про Service Discovery.'
-        ],
-        database: [
-          'База данных! Важный компонент. SQL или NoSQL? Какой характер данных - транзакционный или аналитический?',
-          'Отлично! Не забудьте про репликацию и backup стратегию. Какая допустимая потеря данных в вашем случае?'
-        ],
-        scale: [
-          'Масштабируемость - критично! Рассмотрите horizontal scaling, кэширование и балансировку нагрузки.',
-          'Хороший вопрос! Давайте добавим Redis для кэша и настроим автоскейлинг для пиковых нагрузок.'
-        ],
-        security: [
-          'Безопасность превыше всего! OAuth 2.0 для аутентификации? JWT токены? Не забудьте про HTTPS везде.',
-          'Отличное внимание к безопасности! Рассмотрите принцип наименьших привилегий и шифрование данных в покое.'
-        ]
-      },
-      general: {
-        greeting: [
-          'Привет! Рад снова общаться. Над чем будем работать сегодня?',
-          'Здравствуйте! Готов помочь с архитектурными решениями. Что проектируем?'
-        ],
-        thanks: [
-          'Всегда пожалуйста! Я здесь, чтобы помочь создать лучшую систему.',
-          'Рад помочь! Вместе мы построим надежную архитектуру.'
-        ],
-        joke: [
-          'Знаете, что общего у микросервисов и подростков? Они оба не слушаются родителей и делают что хотят!',
-          'Почему программисты путают Хэллоуин и Рождество? Потому что Oct 31 == Dec 25!',
-          'Два базы данных встретились в баре. Третья подошла и спросила: "Могу я присоединиться к вам?"'
-        ]
-      }
-    };
-
-    if (input.includes('привет') || input.includes('здравствуй')) {
-      return getRandomResponse(contextResponses.general.greeting);
+  const getFallbackResponse = (input: string, context: string): string => {
+    const lower = input.toLowerCase();
+    
+    if (lower.includes('привет') || lower.includes('здравствуй')) {
+      return 'Приветствую! Готов помочь с архитектурными решениями.';
     }
-    if (input.includes('спасибо') || input.includes('благодар')) {
-      return getRandomResponse(contextResponses.general.thanks);
+    if (lower.includes('спасибо')) {
+      return 'К вашим услугам, сэр.';
     }
-    if (input.includes('шутк') || input.includes('рассмеш') || input.includes('анекдот')) {
-      return getRandomResponse(contextResponses.general.joke);
+    if (lower.includes('микросервис')) {
+      return 'Микросервисы? Не забудьте API Gateway и distributed tracing.';
     }
-
-    if (context === 'architecture' || context === 'studio') {
-      if (input.includes('помощь') || input.includes('помог') || input.includes('как')) {
-        return getRandomResponse(contextResponses.architecture.help);
-      }
-      if (input.includes('добав') || input.includes('создать') || input.includes('новый')) {
-        return getRandomResponse(contextResponses.architecture.add);
-      }
-      if (input.includes('связ') || input.includes('соедин') || input.includes('подключ')) {
-        return getRandomResponse(contextResponses.architecture.connect);
-      }
-      if (input.includes('микросервис') || input.includes('сервис')) {
-        return getRandomResponse(contextResponses.architecture.microservice);
-      }
-      if (input.includes('база') || input.includes('данн') || input.includes('хранилище')) {
-        return getRandomResponse(contextResponses.architecture.database);
-      }
-      if (input.includes('масштаб') || input.includes('нагрузк') || input.includes('производ')) {
-        return getRandomResponse(contextResponses.architecture.scale);
-      }
-      if (input.includes('безопас') || input.includes('защит') || input.includes('аутент')) {
-        return getRandomResponse(contextResponses.architecture.security);
-      }
+    if (lower.includes('база')) {
+      return 'SQL или NoSQL? Помните про транзакции.';
     }
-
-    const genericResponses = [
-      'Интересная мысль! Расскажите подробнее, я помогу развить эту идею.',
-      'Хороший вопрос! Давайте разберем это по шагам.',
-      'Понимаю вашу задачу. Предлагаю начать с декомпозиции требований.',
-      'Отличное направление! Какие технические ограничения нужно учесть?',
-      'Я вижу потенциал в этом решении. Продумали ли вы сценарии отказа?',
-      'Хороший подход! А как это будет работать под высокой нагрузкой?',
-      'Понял! Давайте обсудим, как это интегрируется с остальной системой.'
-    ];
-
-    return getRandomResponse(genericResponses);
-  };
-
-  const getRandomResponse = (responses: string[]): string => {
-    return responses[Math.floor(Math.random() * responses.length)];
+    
+    return 'Интересная задача! Дайте больше деталей.';
   };
 
   const speak = (text: string) => {
@@ -249,17 +194,21 @@ export function JarvisProvider({ children }: JarvisProviderProps) {
     
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'ru-RU';
-    utterance.rate = 0.95;
-    utterance.pitch = 0.85;
+    utterance.rate = 1.15;
+    utterance.pitch = 0.9;
     utterance.volume = 1.0;
 
     const voices = window.speechSynthesis.getVoices();
-    const russianVoice = voices.find(voice => 
-      voice.lang.startsWith('ru') && voice.name.includes('Male')
+    const preferredVoice = voices.find(voice => 
+      voice.lang.startsWith('ru') && (
+        voice.name.includes('Male') || 
+        voice.name.includes('Yuri') ||
+        voice.name.includes('Google')
+      )
     ) || voices.find(voice => voice.lang.startsWith('ru'));
     
-    if (russianVoice) {
-      utterance.voice = russianVoice;
+    if (preferredVoice) {
+      utterance.voice = preferredVoice;
     }
     
     utterance.onstart = () => {
@@ -274,7 +223,7 @@ export function JarvisProvider({ children }: JarvisProviderProps) {
       if (isActive && recognitionRef.current) {
         setTimeout(() => {
           recognitionRef.current?.start();
-        }, 500);
+        }, 300);
       }
     };
     
@@ -283,7 +232,7 @@ export function JarvisProvider({ children }: JarvisProviderProps) {
       if (isActive && recognitionRef.current) {
         setTimeout(() => {
           recognitionRef.current?.start();
-        }, 500);
+        }, 300);
       }
     };
 
@@ -311,38 +260,46 @@ export function JarvisProvider({ children }: JarvisProviderProps) {
     setCurrentContext(context);
   };
 
-  const analyzeAction = (action: string, data?: any) => {
-    const actionComments: Record<string, string[]> = {
-      'element-added': [
-        'Вижу, вы добавили новый элемент! Отличное начало. Не забудьте определить его интерфейсы.',
-        'Новый компонент на диаграмме! Продумайте его зависимости.',
-        'Элемент добавлен! Какую ответственность он будет нести?'
-      ],
-      'element-connected': [
-        'Связь установлена! Какой протокол взаимодействия планируете использовать?',
-        'Интересная связь! Это синхронное или асинхронное взаимодействие?',
-        'Хорошо! Подумайте о handling ошибок в этой связи.'
-      ],
-      'element-moved': [
-        'Организуете диаграмму - отлично! Визуальная ясность важна.',
-        'Хорошая структура! Логически связанные элементы рядом - правильный подход.'
-      ],
-      'level-changed': [
-        'Переключаем уровень детализации! C4 модель в действии.',
-        'Отлично! Разные уровни абстракции помогают видеть полную картину.'
-      ],
-      'stage-changed': [
-        'Новый этап проектирования! Что будем исследовать?',
-        'Переходим дальше! Я с вами на каждом шаге.'
-      ]
+  const analyzeAction = async (action: string, data?: any) => {
+    if (processingRef.current) return;
+
+    const actionMessages: Record<string, string> = {
+      'element-added': `Пользователь добавил элемент: ${data?.element?.name || 'новый компонент'}`,
+      'element-connected': 'Пользователь создал связь между компонентами',
+      'level-changed': `Пользователь переключился на уровень ${data?.level || 'другой'}`,
+      'stage-changed': `Пользователь перешел на этап ${data?.stage || 'новый'}`
     };
 
-    if (actionComments[action]) {
-      const comment = getRandomResponse(actionComments[action]);
-      setTimeout(() => {
-        addMessage(comment, 'jarvis', currentContext);
-        speak(comment);
-      }, 800);
+    const actionMessage = actionMessages[action];
+    if (!actionMessage) return;
+
+    processingRef.current = true;
+    setIsThinking(true);
+
+    try {
+      const response = await fetch(JARVIS_AI_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: actionMessage,
+          context: currentContext,
+          history: messages.slice(-2)
+        })
+      });
+
+      const result = await response.json();
+      
+      if (result.response) {
+        setTimeout(() => {
+          addMessage(result.response, 'jarvis', currentContext);
+          speak(result.response);
+        }, 400);
+      }
+    } catch (error) {
+      console.error('Failed to analyze action:', error);
+    } finally {
+      setIsThinking(false);
+      processingRef.current = false;
     }
   };
 
@@ -361,6 +318,7 @@ export function JarvisProvider({ children }: JarvisProviderProps) {
     isActive,
     isListening,
     isSpeaking,
+    isThinking,
     messages,
     currentContext,
     addMessage,

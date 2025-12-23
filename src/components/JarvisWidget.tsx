@@ -7,7 +7,7 @@ import { useJarvis } from '@/components/JarvisCore';
 import { Badge } from '@/components/ui/badge';
 
 export default function JarvisWidget() {
-  const { isListening, isSpeaking, messages, stopSpeaking } = useJarvis();
+  const { isListening, isSpeaking, isThinking, messages, stopSpeaking } = useJarvis();
   const [isExpanded, setIsExpanded] = useState(false);
   const [pulse, setPulse] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -49,10 +49,10 @@ export default function JarvisWidget() {
                     <div className="flex items-center gap-3">
                       <div className="relative h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
                         <Icon name="Bot" size={20} className="text-white" />
-                        {(isListening || isSpeaking) && (
+                        {(isListening || isSpeaking || isThinking) && (
                           <motion.div
                             animate={{ scale: [1, 1.2, 1] }}
-                            transition={{ duration: 1, repeat: Infinity }}
+                            transition={{ duration: 0.8, repeat: Infinity }}
                             className="absolute inset-0 rounded-full bg-purple-500/30"
                           />
                         )}
@@ -60,7 +60,7 @@ export default function JarvisWidget() {
                       <div>
                         <h3 className="font-semibold">Джарвис</h3>
                         <p className="text-xs text-muted-foreground">
-                          {isSpeaking ? 'Говорю...' : isListening ? 'Слушаю...' : 'Активен'}
+                          {isSpeaking ? 'Говорю...' : isThinking ? 'Думаю...' : isListening ? 'Слушаю...' : 'Активен'}
                         </p>
                       </div>
                     </div>
@@ -117,11 +117,18 @@ export default function JarvisWidget() {
                 </div>
 
                 <div className="p-4 border-t border-border bg-muted/20">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <div className="flex gap-1">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <div className="flex gap-1 items-center">
                       <div className={`h-2 w-2 rounded-full ${isListening ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
-                      <span>Микрофон {isListening ? 'активен' : 'ожидание'}</span>
+                      <span>🎤 {isListening ? 'Слушаю' : 'Готов'}</span>
                     </div>
+                    {isThinking && (
+                      <div className="flex gap-1 items-center text-purple-400">
+                        <div className="h-1.5 w-1.5 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <div className="h-1.5 w-1.5 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <div className="h-1.5 w-1.5 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                      </div>
+                    )}
                   </div>
                 </div>
               </Card>

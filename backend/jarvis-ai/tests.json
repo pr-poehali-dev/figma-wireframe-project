@@ -1,0 +1,58 @@
+{
+  "tests": [
+    {
+      "name": "Test AI response for architecture context",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "message": "Как лучше спроектировать микросервисную архитектуру?",
+        "context": "architecture",
+        "history": []
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "response": "string",
+        "context": "architecture",
+        "model": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Test AI response with conversation history",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "message": "А что насчет базы данных?",
+        "context": "architecture",
+        "history": [
+          {
+            "role": "user",
+            "content": "Нужен микросервис для пользователей"
+          },
+          {
+            "role": "jarvis",
+            "content": "Отличная идея! Рассмотрите REST API и JWT для аутентификации."
+          }
+        ]
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "response": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Test error handling for empty message",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "message": "",
+        "context": "general"
+      },
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "Message is required"
+      }
+    }
+  ]
+}
