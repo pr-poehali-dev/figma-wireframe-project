@@ -14,13 +14,13 @@ export default function JarvisWelcome({ onComplete }: JarvisWelcomeProps) {
       'Добро пожаловать в Архитектор. Меня зовут Джарвис, и я буду сопровождать вас на всём протяжении проектирования, приводя к самому лучшему результату.'
     );
     utterance.lang = 'ru-RU';
-    utterance.rate = 1.15;
-    utterance.pitch = 0.9;
+    utterance.rate = 1.25;
+    utterance.pitch = 0.75;
     utterance.volume = 1.0;
 
     const voices = window.speechSynthesis.getVoices();
     const russianVoice = voices.find(voice => 
-      voice.lang.startsWith('ru') && (voice.name.includes('Male') || voice.name.includes('Yuri') || voice.name.includes('Google'))
+      voice.lang.startsWith('ru') && voice.name.toLowerCase().includes('male')
     ) || voices.find(voice => voice.lang.startsWith('ru'));
     
     if (russianVoice) {
@@ -34,13 +34,13 @@ export default function JarvisWelcome({ onComplete }: JarvisWelcomeProps) {
     utterance.onend = () => {
       setTimeout(() => {
         setStage('fading');
-        setTimeout(onComplete, 800);
-      }, 500);
+        setTimeout(onComplete, 400);
+      }, 200);
     };
 
     const timer = setTimeout(() => {
       window.speechSynthesis.speak(utterance);
-    }, 1000);
+    }, 500);
 
     const pulseInterval = setInterval(() => {
       setPulse(prev => (prev + 1) % 3);

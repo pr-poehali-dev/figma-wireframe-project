@@ -105,7 +105,9 @@ interface OKR {
 
 export default function Index() {
   const { setContext, analyzeAction } = useJarvis();
-  const [showWelcome, setShowWelcome] = useState(true);
+  const [showWelcome, setShowWelcome] = useState(() => {
+    return !localStorage.getItem('jarvis_welcomed');
+  });
   const [currentStage, setCurrentStage] = useState(2);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isArchDialogOpen, setIsArchDialogOpen] = useState(false);
@@ -796,11 +798,13 @@ export default function Index() {
   useEffect(() => {
     const stageContexts = ['general', 'vision', 'requirements', 'architecture', 'api', 'documentation'];
     setContext(stageContexts[currentStage] || 'general');
-    analyzeAction('stage-changed', { stage: currentStage });
-  }, [currentStage]);
+  }, [currentStage, setContext]);
 
   if (showWelcome) {
-    return <JarvisWelcome onComplete={() => setShowWelcome(false)} />;
+    return <JarvisWelcome onComplete={() => {
+      setShowWelcome(false);
+      localStorage.setItem('jarvis_welcomed', 'true');
+    }} />;
   }
 
   return (

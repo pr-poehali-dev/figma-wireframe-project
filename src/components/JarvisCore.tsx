@@ -85,20 +85,28 @@ export function JarvisProvider({ children }: JarvisProviderProps) {
             recognitionRef.current?.stop();
             setTimeout(() => {
               if (isActive && !isSpeaking && !isThinking) {
-                recognitionRef.current?.start();
+                try {
+                  recognitionRef.current?.start();
+                } catch (e) {
+                  console.log('Recognition restart skipped');
+                }
               }
-            }, 50);
+            }, 100);
           }
-        }, 1500);
+        }, 1000);
       };
 
       recognitionRef.current.onerror = (event: any) => {
         if (event.error === 'no-speech' || event.error === 'aborted') {
           setTimeout(() => {
             if (isActive && !isSpeaking && !isThinking) {
-              recognitionRef.current?.start();
+              try {
+                recognitionRef.current?.start();
+              } catch (e) {
+                console.log('Recognition restart after error skipped');
+              }
             }
-          }, 50);
+          }, 100);
         }
       };
 
@@ -106,8 +114,12 @@ export function JarvisProvider({ children }: JarvisProviderProps) {
         setIsListening(false);
         if (isActive && !isSpeaking && !isThinking) {
           setTimeout(() => {
-            recognitionRef.current?.start();
-          }, 50);
+            try {
+              recognitionRef.current?.start();
+            } catch (e) {
+              console.log('Recognition restart after end skipped');
+            }
+          }, 100);
         }
       };
     }
@@ -124,10 +136,14 @@ export function JarvisProvider({ children }: JarvisProviderProps) {
   }, []);
 
   useEffect(() => {
-    if (isActive && !isSpeaking && !isThinking) {
-      recognitionRef.current?.start();
-    } else if (!isActive) {
-      recognitionRef.current?.stop();
+    if (isActive && !isSpeaking && !isThinking && recognitionRef.current) {
+      try {
+        recognitionRef.current.start();
+      } catch (e) {
+        console.log('Recognition already started');
+      }
+    } else if (!isActive && recognitionRef.current) {
+      recognitionRef.current.stop();
     }
   }, [isActive, isSpeaking, isThinking]);
 
@@ -174,19 +190,25 @@ export function JarvisProvider({ children }: JarvisProviderProps) {
     const lower = input.toLowerCase();
     
     if (lower.includes('привет') || lower.includes('здравствуй')) {
-      return 'Приветствую! Готов помочь с архитектурными решениями.';
+      return 'Приветствую, сэр. Надеюсь, сегодня без катастроф обойдемся?';
     }
     if (lower.includes('спасибо')) {
-      return 'К вашим услугам, сэр.';
+      return 'К вашим услугам. В очередной раз.';
     }
     if (lower.includes('микросервис')) {
-      return 'Микросервисы? Не забудьте API Gateway и distributed tracing.';
+      return 'Микросервисы! Надеюсь, у вас есть год на настройку distributed tracing?';
     }
-    if (lower.includes('база')) {
-      return 'SQL или NoSQL? Помните про транзакции.';
+    if (lower.includes('база') || lower.includes('данн')) {
+      return 'SQL или NoSQL? Или будем молиться на удачу?';
+    }
+    if (lower.includes('api')) {
+      return 'API без версионирования? Смелый выбор, сэр.';
+    }
+    if (lower.includes('безопас') || lower.includes('защит')) {
+      return 'О безопасности вспомнили! Как освежающе. OAuth 2.0 хотя бы?';
     }
     
-    return 'Интересная задача! Дайте больше деталей.';
+    return 'Интригующе. Дайте чуть больше деталей, и я предложу решение.';
   };
 
   const speak = (text: string) => {
@@ -194,17 +216,13 @@ export function JarvisProvider({ children }: JarvisProviderProps) {
     
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'ru-RU';
-    utterance.rate = 1.15;
-    utterance.pitch = 0.9;
+    utterance.rate = 1.2;
+    utterance.pitch = 0.75;
     utterance.volume = 1.0;
 
     const voices = window.speechSynthesis.getVoices();
     const preferredVoice = voices.find(voice => 
-      voice.lang.startsWith('ru') && (
-        voice.name.includes('Male') || 
-        voice.name.includes('Yuri') ||
-        voice.name.includes('Google')
-      )
+      voice.lang.startsWith('ru') && voice.name.toLowerCase().includes('male')
     ) || voices.find(voice => voice.lang.startsWith('ru'));
     
     if (preferredVoice) {
@@ -222,8 +240,12 @@ export function JarvisProvider({ children }: JarvisProviderProps) {
       setIsSpeaking(false);
       if (isActive && recognitionRef.current) {
         setTimeout(() => {
-          recognitionRef.current?.start();
-        }, 300);
+          try {
+            recognitionRef.current?.start();
+          } catch (e) {
+            console.log('Recognition restart skipped after speech');
+          }
+        }, 200);
       }
     };
     
@@ -231,8 +253,12 @@ export function JarvisProvider({ children }: JarvisProviderProps) {
       setIsSpeaking(false);
       if (isActive && recognitionRef.current) {
         setTimeout(() => {
-          recognitionRef.current?.start();
-        }, 300);
+          try {
+            recognitionRef.current?.start();
+          } catch (e) {
+            console.log('Recognition restart after error skipped');
+          }
+        }, 200);
       }
     };
 
@@ -329,10 +355,7 @@ export function JarvisProvider({ children }: JarvisProviderProps) {
   };
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsActive(true);
-    }, 100);
-    return () => clearTimeout(timer);
+    setIsActive(true);
   }, []);
 
   return (
