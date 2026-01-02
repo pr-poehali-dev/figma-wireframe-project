@@ -12,10 +12,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ArchitectureStudio from '@/components/ArchitectureStudio';
-import JarvisWelcome from '@/components/JarvisWelcome';
-import JarvisWidget from '@/components/JarvisWidget';
+import ArchitectonWelcome from '@/components/ArchitectonWelcome';
+import ArchitectonWidget from '@/components/ArchitectonWidget';
 import JarvisActivation from '@/components/JarvisActivation';
-import { useJarvis } from '@/components/JarvisCore';
+import { useArchitecton } from '@/components/ArchitectonCore';
 
 const stages = [
   { id: 1, name: 'Vision', icon: 'Lightbulb', color: 'text-yellow-400' },
@@ -105,7 +105,7 @@ interface OKR {
 
 
 export default function Index() {
-  const { setContext, analyzeAction, isActive, speak, addMessage } = useJarvis();
+  const { updateContext, analyzeAction, isActive, speak, addMessage, trackUserAction } = useArchitecton();
   const [showWelcome, setShowWelcome] = useState(true);
   const [showActivation, setShowActivation] = useState(false);
   const [currentStage, setCurrentStage] = useState(1);
@@ -796,8 +796,18 @@ export default function Index() {
   const uniqueEpics = Array.from(new Set(userStories.map(s => s.epic).filter(Boolean)));
 
   useEffect(() => {
-    const stageContexts = ['general', 'vision', 'requirements', 'architecture', 'api', 'documentation'];
-    setContext(stageContexts[currentStage] || 'general');
+    const phaseMap = {
+      0: 'general',
+      1: 'vision',
+      2: 'requirements',
+      3: 'architecture',
+      4: 'api',
+      5: 'documentation'
+    } as const;
+    
+    updateContext({ 
+      projectPhase: phaseMap[currentStage as keyof typeof phaseMap] || 'vision'
+    });
     
     const stageIntros: Record<number, string> = {
       1: 'Раздел Vision - здесь определяем видение проекта, цели, метрики успеха и OKR. Формируем стратегию продукта.',
@@ -817,7 +827,7 @@ export default function Index() {
   }, [currentStage]);
 
   if (showWelcome) {
-    return <JarvisWelcome onComplete={() => {
+    return <ArchitectonWelcome onComplete={() => {
       setShowWelcome(false);
       setShowActivation(true);
     }} />;
@@ -829,7 +839,7 @@ export default function Index() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <JarvisWidget />
+      <ArchitectonWidget />
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
