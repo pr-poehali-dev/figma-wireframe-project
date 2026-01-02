@@ -42,7 +42,6 @@ interface ArchitectonContextType {
   analyzeAction: (action: string, data?: any) => void;
   activate: () => Promise<void>;
   proactiveAssist: () => void;
-  speakWelcome: () => void;
 }
 
 const ArchitectonContext = createContext<ArchitectonContextType | undefined>(undefined);
@@ -294,36 +293,10 @@ export function ArchitectonProvider({ children }: ArchitectonProviderProps) {
     setCurrentContext(prev => ({ ...prev, ...context }));
   };
 
-  // ========================
-  // ГОЛОСОВОЕ ПРИВЕТСТВИЕ (ТОЛЬКО ОДИН РАЗ ПРИ ВХОДЕ)
-  // ========================
-  const speakWelcome = () => {
-    const utterance = new SpeechSynthesisUtterance(
-      'Добро пожаловать в систему Архитектон. Я ваш интеллектуальный помощник.'
-    );
-    utterance.lang = 'ru-RU';
-    utterance.rate = 0.9; // Медленный, размеренный
-    utterance.pitch = 0.6; // Очень низкий, строгий мужской голос
-    utterance.volume = 1.0;
-
-    const voices = window.speechSynthesis.getVoices();
-    const maleVoice = voices.find(voice => 
-      voice.lang.startsWith('ru') && 
-      voice.name.toLowerCase().includes('male')
-    ) || voices.find(voice => voice.lang.startsWith('ru'));
-    
-    if (maleVoice) {
-      utterance.voice = maleVoice;
-    }
-
-    window.speechSynthesis.speak(utterance);
-  };
-
   const activateArchitecton = async () => {
     setIsActive(true);
     sessionStartRef.current = Date.now();
     
-    // Приветственное сообщение (текст)
     const greeting = "Система активирована. Готов помогать с архитектурой проекта.";
     addMessage(greeting, 'architecton', 'congratulation', 'emotional');
   };
@@ -339,8 +312,7 @@ export function ArchitectonProvider({ children }: ArchitectonProviderProps) {
     trackUserAction,
     analyzeAction,
     activate: activateArchitecton,
-    proactiveAssist,
-    speakWelcome
+    proactiveAssist
   };
 
   return (

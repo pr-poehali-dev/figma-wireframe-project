@@ -1,4 +1,6 @@
 {
+  "api-endpoints": "https://functions.poehali.dev/1926781c-0346-4cac-8c6f-edb0153dd1e5",
+  "api-services": "https://functions.poehali.dev/ee076735-4d31-47d3-ab97-6e0f025d3420",
   "jarvis-ai": "https://functions.poehali.dev/cb50a2d4-5342-46aa-b0e1-9e88cc6ae0da",
   "api": "https://functions.poehali.dev/6db0a9fb-acd7-4567-b47a-1faad9a0ae24"
 }

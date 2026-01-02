@@ -1,0 +1,31 @@
+{
+  "tests": [
+    {
+      "name": "Get all services",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "services": "array"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Create new service",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "name": "Test Service",
+        "description": "Test description",
+        "protocol": "REST",
+        "version": "1.0"
+      },
+      "expectedStatus": 201,
+      "expectedBody": {
+        "id": "number",
+        "message": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

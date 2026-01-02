@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import ApiDashboard from '@/components/api/ApiDashboard';
@@ -8,10 +8,34 @@ import EventDesigner from '@/components/api/EventDesigner';
 import DocumentationGenerator from '@/components/api/DocumentationGenerator';
 import CodeGenerator from '@/components/api/CodeGenerator';
 import { ApiEndpoint, ApiService, ApiEvent, DataSchema } from '@/types/api';
+import { apiClient } from '@/lib/apiClient';
 
 export default function ApiDesignPage() {
   const [activeView, setActiveView] = useState<'dashboard' | 'endpoint' | 'schema' | 'event' | 'docs' | 'code'>('dashboard');
   const [selectedEndpoint, setSelectedEndpoint] = useState<ApiEndpoint | undefined>();
+  const [services, setServices] = useState<ApiService[]>([]);
+  const [endpoints, setEndpoints] = useState<ApiEndpoint[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [servicesData, endpointsData] = await Promise.all([
+        apiClient.getServices(),
+        apiClient.getEndpoints()
+      ]);
+      setServices(servicesData as any);
+      setEndpoints(endpointsData as any);
+    } catch (error) {
+      console.error('Failed to load data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const mockServices: ApiService[] = [
     { id: '1', name: 'Order Service', description: 'Управление заказами', endpointCount: 12, protocol: 'REST', version: '1.0', status: 'active' },
@@ -225,9 +249,19 @@ export default function ApiDesignPage() {
     setActiveView('endpoint');
   };
 
-  const handleSaveEndpoint = (endpoint: Partial<ApiEndpoint>) => {
-    console.log('Saving endpoint:', endpoint);
-    setActiveView('dashboard');
+  const handleSaveEndpoint = async (endpoint: Partial<ApiEndpoint>) => {
+    try {
+      if (selectedEndpoint) {
+        await apiClient.updateEndpoint(parseInt(selectedEndpoint.id), endpoint);
+      } else {
+        await apiClient.createEndpoint(endpoint);
+      }
+      await loadData();
+      setActiveView('dashboard');
+    } catch (error) {
+      console.error('Failed to save endpoint:', error);
+      alert('Ошибка при сохранении endpoint');
+    }
   };
 
   return (
@@ -289,15 +323,26 @@ export default function ApiDesignPage() {
       </header>
 
       <main className="h-[calc(100vh-60px)]">
-        {activeView === 'dashboard' && (
+        {loading ? (
+          <div className="h-full flex items-center justify-center">
+            <div className="text-center">
+              <Icon name="Loader2" size={48} className="animate-spin mx-auto mb-4 text-primary" />
+              <p className="text-muted-foreground">Загрузка API Design Studio...</p>
+            </div>
+          </div>
+        ) : activeView === 'dashboard' ? (
           <ApiDashboard
-            services={mockServices}
-            endpoints={mockEndpoints}
+            services={services.length > 0 ? services : mockServices}
+            endpoints={endpoints.length > 0 ? endpoints : mockEndpoints}
             onCreateEndpoint={handleCreateEndpoint}
             onEditEndpoint={handleEditEndpoint}
             onSyncWithUseCases={() => console.log('Sync with use cases')}
             onAutoGenerate={() => console.log('Auto generate')}
           />
+        ) : null}
+
+        {!loading && activeView === 'dashboard' && (
+          <></>
         )}
 
         {activeView === 'endpoint' && (

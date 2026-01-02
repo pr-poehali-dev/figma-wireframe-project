@@ -1,0 +1,32 @@
+{
+  "tests": [
+    {
+      "name": "Get all endpoints",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "endpoints": "array"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Create new endpoint",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "service_id": 1,
+        "method": "GET",
+        "path": "/api/test",
+        "summary": "Test endpoint",
+        "status": "development"
+      },
+      "expectedStatus": 201,
+      "expectedBody": {
+        "id": "number",
+        "message": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

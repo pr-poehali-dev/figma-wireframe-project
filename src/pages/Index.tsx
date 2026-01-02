@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ArchitectureStudio from '@/components/ArchitectureStudio';
-import ArchitectonWelcome from '@/components/ArchitectonWelcome';
+import ArchitectonWelcomeNew from '@/components/ArchitectonWelcomeNew';
 import ArchitectonWidget from '@/components/ArchitectonWidget';
 import JarvisActivation from '@/components/JarvisActivation';
 import { useArchitecton } from '@/components/ArchitectonCore';
@@ -811,7 +811,7 @@ export default function Index() {
   }, [currentStage, updateContext]);
 
   if (showWelcome) {
-    return <ArchitectonWelcome onComplete={() => {
+    return <ArchitectonWelcomeNew onComplete={() => {
       setShowWelcome(false);
       setShowActivation(true);
     }} />;
@@ -847,7 +847,7 @@ export default function Index() {
                 size="sm" 
                 variant="outline"
                 onClick={() => {
-                  if (confirm('Выйти из платформы? Вы вернетесь к экрану приветствия Джарвиса.')) {
+                  if (confirm('Выйти из платформы?')) {
                     setShowWelcome(true);
                     setShowActivation(false);
                   }
