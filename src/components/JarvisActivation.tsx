@@ -19,8 +19,7 @@ export default function JarvisActivation({ onActivate }: JarvisActivationProps) 
       await activate();
       onActivate();
     } catch (error) {
-      console.error('Microphone permission denied:', error);
-      alert('Для работы ARCHITECTON нужен доступ к микрофону. Разрешите доступ в настройках браузера.');
+      console.error('Activation error:', error);
     } finally {
       setIsActivating(false);
     }
@@ -46,26 +45,26 @@ export default function JarvisActivation({ onActivate }: JarvisActivationProps) 
             }}
             className="inline-flex h-24 w-24 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 items-center justify-center mb-6"
           >
-            <Icon name="Mic" size={40} className="text-white" />
+            <Icon name="Bot" size={40} className="text-white" />
           </motion.div>
 
           <h2 className="text-2xl font-bold mb-3">Активировать ARCHITECTON</h2>
           <p className="text-muted-foreground mb-6">
-            Для голосового взаимодействия с интеллектуальным партнером нужен доступ к микрофону
+            Интеллектуальный помощник с проактивными подсказками
           </p>
 
           <div className="space-y-3 mb-6 text-left bg-muted/20 rounded-lg p-4">
             <div className="flex items-start gap-2">
               <Icon name="Check" size={16} className="text-green-400 mt-1" />
-              <span className="text-sm">ARCHITECTON будет слушать ваши вопросы</span>
+              <span className="text-sm">Анализ ваших действий в реальном времени</span>
             </div>
             <div className="flex items-start gap-2">
               <Icon name="Check" size={16} className="text-green-400 mt-1" />
-              <span className="text-sm">Отвечать голосом с эмоциональной окраской</span>
+              <span className="text-sm">Текстовые подсказки и рекомендации</span>
             </div>
             <div className="flex items-start gap-2">
               <Icon name="Check" size={16} className="text-green-400 mt-1" />
-              <span className="text-sm">Анализировать ваше состояние и давать проактивные советы</span>
+              <span className="text-sm">Проактивная помощь при стрессе и усталости</span>
             </div>
           </div>
 
@@ -74,12 +73,12 @@ export default function JarvisActivation({ onActivate }: JarvisActivationProps) 
             disabled={isActivating}
             className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90 text-lg py-6"
           >
-            <Icon name="Mic" size={20} className="mr-2" />
-            {isActivating ? 'Активация...' : 'Активировать голосовой интерфейс'}
+            <Icon name="Bot" size={20} className="mr-2" />
+            {isActivating ? 'Активация...' : 'Активировать помощника'}
           </Button>
 
           <p className="text-xs text-muted-foreground mt-4">
-            Ваш голос обрабатывается локально в браузере
+            Все подсказки основаны на анализе ваших действий
           </p>
         </div>
       </Card>

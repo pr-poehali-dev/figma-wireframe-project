@@ -808,23 +808,7 @@ export default function Index() {
     updateContext({ 
       projectPhase: phaseMap[currentStage as keyof typeof phaseMap] || 'vision'
     });
-    
-    const stageIntros: Record<number, string> = {
-      1: 'Раздел Vision - здесь определяем видение проекта, цели, метрики успеха и OKR. Формируем стратегию продукта.',
-      2: 'Раздел Требования - создаем User Stories, Use Cases и критерии приемки. Детализируем функциональность.',
-      3: 'Раздел Архитектура - проектируем C4 диаграммы, выбираем компоненты и технологии. Строим систему.',
-      4: 'Раздел API Design - определяем endpoints, структуру запросов и ответов. Проектируем интерфейсы.',
-      5: 'Раздел Документация - создаем описание системы, гайды и спецификации. Фиксируем решения.'
-    };
-    
-    const intro = stageIntros[currentStage];
-    if (intro && isActive) {
-      setTimeout(() => {
-        addMessage(intro, 'jarvis', stageContexts[currentStage]);
-        speak(intro);
-      }, 500);
-    }
-  }, [currentStage]);
+  }, [currentStage, updateContext]);
 
   if (showWelcome) {
     return <ArchitectonWelcome onComplete={() => {

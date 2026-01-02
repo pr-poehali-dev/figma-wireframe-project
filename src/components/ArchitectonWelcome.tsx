@@ -12,12 +12,12 @@ export default function ArchitectonWelcome({ onComplete }: ArchitectonWelcomePro
   useEffect(() => {
     const loadVoicesAndSpeak = () => {
       const utterance = new SpeechSynthesisUtterance(
-        'Добро пожаловать. Меня зовут Архитектон. Я — ваш партнер по проектированию. Вместе мы создадим нечто выдающееся.'
+        'Добро пожаловать в систему Архитектон. Я ваш интеллектуальный помощник.'
       );
       utterance.lang = 'ru-RU';
-      utterance.rate = 0.95;
-      utterance.pitch = 0.7;
-      utterance.volume = 0.9;
+      utterance.rate = 0.85;
+      utterance.pitch = 0.55;
+      utterance.volume = 1.0;
 
       const voices = window.speechSynthesis.getVoices();
       const russianVoice = voices.find(voice => 
@@ -36,8 +36,8 @@ export default function ArchitectonWelcome({ onComplete }: ArchitectonWelcomePro
       utterance.onend = () => {
         setTimeout(() => {
           setStage('fading');
-          setTimeout(onComplete, 300);
-        }, 100);
+          setTimeout(onComplete, 500);
+        }, 1000);
       };
 
       utterance.onerror = () => {
@@ -52,7 +52,7 @@ export default function ArchitectonWelcome({ onComplete }: ArchitectonWelcomePro
 
     const pulseInterval = setInterval(() => {
       setPulse(prev => (prev + 1) % 3);
-    }, 150);
+    }, 200);
 
     if (window.speechSynthesis.getVoices().length > 0) {
       setTimeout(loadVoicesAndSpeak, 300);
@@ -236,41 +236,7 @@ export default function ArchitectonWelcome({ onComplete }: ArchitectonWelcomePro
           </motion.div>
 
           {/* Текст */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: stage === 'fading' ? 0 : 1, y: 0 }}
-            transition={{ delay: 1, duration: 0.8 }}
-            className="mt-16 text-center"
-          >
-            <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-purple-300 via-blue-300 to-cyan-300 bg-clip-text text-transparent tracking-wide">
-              ARCHITECTON
-            </h1>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: stage === 'speaking' ? 1 : 0.4 }}
-              transition={{ duration: 0.5 }}
-            >
-              <p className="text-xl text-white/90 max-w-3xl mx-auto leading-relaxed font-light">
-                {stage === 'speaking' ? (
-                  <>
-                    Добро пожаловать, шеф.
-                    <br />
-                    <span className="text-lg text-white/70 mt-2 inline-block">
-                      Я — ваш архитектурный партнер с глубоким пониманием
-                      <br />
-                      теории, инженерии и эмоционального интеллекта.
-                    </span>
-                    <br />
-                    <span className="text-base text-purple-400/80 mt-3 inline-block font-medium">
-                      Вместе мы создадим нечто выдающееся.
-                    </span>
-                  </>
-                ) : (
-                  <span className="text-white/30">Инициализация когнитивных модулей...</span>
-                )}
-              </p>
-            </motion.div>
-          </motion.div>
+
 
           {/* Плавающие частицы */}
           <motion.div
