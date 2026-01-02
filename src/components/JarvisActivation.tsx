@@ -3,14 +3,14 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { Card } from '@/components/ui/card';
-import { useJarvis } from '@/components/JarvisCore';
+import { useArchitecton } from '@/components/ArchitectonCore';
 
 interface JarvisActivationProps {
   onActivate: () => void;
 }
 
 export default function JarvisActivation({ onActivate }: JarvisActivationProps) {
-  const { activate } = useJarvis();
+  const { activate } = useArchitecton();
   const [isActivating, setIsActivating] = useState(false);
 
   const handleActivate = async () => {
@@ -20,7 +20,7 @@ export default function JarvisActivation({ onActivate }: JarvisActivationProps) 
       onActivate();
     } catch (error) {
       console.error('Microphone permission denied:', error);
-      alert('Для работы Джарвиса нужен доступ к микрофону. Разрешите доступ в настройках браузера.');
+      alert('Для работы ARCHITECTON нужен доступ к микрофону. Разрешите доступ в настройках браузера.');
     } finally {
       setIsActivating(false);
     }
@@ -49,23 +49,23 @@ export default function JarvisActivation({ onActivate }: JarvisActivationProps) 
             <Icon name="Mic" size={40} className="text-white" />
           </motion.div>
 
-          <h2 className="text-2xl font-bold mb-3">Активировать Джарвиса</h2>
+          <h2 className="text-2xl font-bold mb-3">Активировать ARCHITECTON</h2>
           <p className="text-muted-foreground mb-6">
-            Для голосового взаимодействия с AI-ассистентом нужен доступ к микрофону
+            Для голосового взаимодействия с интеллектуальным партнером нужен доступ к микрофону
           </p>
 
           <div className="space-y-3 mb-6 text-left bg-muted/20 rounded-lg p-4">
             <div className="flex items-start gap-2">
               <Icon name="Check" size={16} className="text-green-400 mt-1" />
-              <span className="text-sm">Джарвис будет слушать ваши вопросы</span>
+              <span className="text-sm">ARCHITECTON будет слушать ваши вопросы</span>
             </div>
             <div className="flex items-start gap-2">
               <Icon name="Check" size={16} className="text-green-400 mt-1" />
-              <span className="text-sm">Отвечать голосом и текстом</span>
+              <span className="text-sm">Отвечать голосом с эмоциональной окраской</span>
             </div>
             <div className="flex items-start gap-2">
               <Icon name="Check" size={16} className="text-green-400 mt-1" />
-              <span className="text-sm">Давать архитектурные советы в реальном времени</span>
+              <span className="text-sm">Анализировать ваше состояние и давать проактивные советы</span>
             </div>
           </div>
 
