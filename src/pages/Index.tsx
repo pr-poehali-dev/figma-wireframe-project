@@ -21,7 +21,7 @@ const stages = [
   { id: 1, name: 'Vision', icon: 'Lightbulb', color: 'text-yellow-400' },
   { id: 2, name: 'Требования', icon: 'FileText', color: 'text-purple-400' },
   { id: 3, name: 'Архитектура', icon: 'Box', color: 'text-blue-400' },
-  { id: 4, name: 'API Design', icon: 'Network', color: 'text-green-400' },
+  { id: 4, name: 'API Design', icon: 'Code', color: 'text-green-400' },
   { id: 5, name: 'Документация', icon: 'BookOpen', color: 'text-orange-400' },
 ];
 
@@ -2468,7 +2468,7 @@ export default function Index() {
                 <div className="flex items-center justify-between mb-6">
                   <div>
                     <h2 className="text-3xl font-bold mb-2">Архитектура системы</h2>
-                    <p className="text-muted-foreground">Проектируй с AI-ассистентом Джарвисом</p>
+                    <p className="text-muted-foreground">Проектируй с AI-ассистентом</p>
                   </div>
                 </div>
 
@@ -2483,7 +2483,7 @@ export default function Index() {
                       </div>
                       <div>
                         <h3 className="text-2xl font-bold mb-1">Architecture Studio Pro</h3>
-                        <p className="text-muted-foreground">Профессиональный редактор архитектуры с AI-ассистентом Джарвисом</p>
+                        <p className="text-muted-foreground">Профессиональный редактор архитектуры с AI-ассистентом</p>
                       </div>
                     </div>
                     <Icon name="ArrowRight" size={32} className="text-purple-400 group-hover:translate-x-2 transition-transform" />
@@ -2566,8 +2566,8 @@ export default function Index() {
                           <span className="text-sm font-bold text-cyan-400">3</span>
                         </div>
                         <div>
-                          <p className="font-semibold mb-1">Проси помощи у Джарвиса</p>
-                          <p className="text-sm text-muted-foreground">Голосовой помощник справа подскажет</p>
+                          <p className="font-semibold mb-1">Проси помощи у ассистента</p>
+                          <p className="text-sm text-muted-foreground">Умный помощник справа подскажет</p>
                         </div>
                       </div>
                     </div>
@@ -2610,6 +2610,118 @@ export default function Index() {
                       <div className="flex items-center gap-3">
                         <Icon name="Check" size={20} className="text-green-400" />
                         <span className="text-sm">Метрики и анализ архитектуры</span>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+              </div>
+            )}
+
+            {currentStage === 4 && (
+              <div>
+                <Card 
+                  className="p-8 mb-6 bg-gradient-to-br from-green-500/10 via-blue-500/10 to-cyan-500/10 border-2 border-green-500/30 cursor-pointer hover:scale-105 transition-transform group"
+                  onClick={() => window.open('/api-design', '_blank')}
+                >
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-4">
+                      <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-green-500 to-blue-500 flex items-center justify-center">
+                        <Icon name="Code" size={32} className="text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-2xl font-bold mb-1">API Design Studio</h3>
+                        <p className="text-muted-foreground">Комплексный конструктор API с автогенерацией документации и кода</p>
+                      </div>
+                    </div>
+                    <Icon name="ExternalLink" size={32} className="text-green-400 group-hover:translate-x-2 transition-transform" />
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-4 mb-6">
+                    <div className="bg-card/50 backdrop-blur-sm rounded-lg p-4 border border-border/50">
+                      <Icon name="Network" size={24} className="text-green-400 mb-2" />
+                      <p className="text-sm font-semibold mb-1">REST Endpoints</p>
+                      <p className="text-xs text-muted-foreground">CRUD + события</p>
+                    </div>
+                    <div className="bg-card/50 backdrop-blur-sm rounded-lg p-4 border border-border/50">
+                      <Icon name="Database" size={24} className="text-blue-400 mb-2" />
+                      <p className="text-sm font-semibold mb-1">Схемы данных</p>
+                      <p className="text-xs text-muted-foreground">TypeScript, SQL</p>
+                    </div>
+                    <div className="bg-card/50 backdrop-blur-sm rounded-lg p-4 border border-border/50">
+                      <Icon name="Zap" size={24} className="text-yellow-400 mb-2" />
+                      <p className="text-sm font-semibold mb-1">Events & Webhooks</p>
+                      <p className="text-xs text-muted-foreground">Kafka, RabbitMQ</p>
+                    </div>
+                    <div className="bg-card/50 backdrop-blur-sm rounded-lg p-4 border border-border/50">
+                      <Icon name="FileText" size={24} className="text-purple-400 mb-2" />
+                      <p className="text-sm font-semibold mb-1">Документация</p>
+                      <p className="text-xs text-muted-foreground">OpenAPI, AsyncAPI</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Icon name="Info" size={16} />
+                    <span>Нажмите для открытия в новой вкладке</span>
+                  </div>
+                </Card>
+
+                <div className="grid grid-cols-2 gap-6">
+                  <Card className="p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <Icon name="BookOpen" size={24} className="text-green-400" />
+                      <h3 className="text-xl font-semibold">Возможности</h3>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        <Icon name="Check" size={20} className="text-green-400" />
+                        <span className="text-sm">Визуальный конструктор endpoints</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Icon name="Check" size={20} className="text-green-400" />
+                        <span className="text-sm">Генерация TypeScript/Java/Python кода</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Icon name="Check" size={20} className="text-green-400" />
+                        <span className="text-sm">Mock-сервер для разработки</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Icon name="Check" size={20} className="text-green-400" />
+                        <span className="text-sm">Автогенерация тест-кейсов</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Icon name="Check" size={20} className="text-green-400" />
+                        <span className="text-sm">Kubernetes + CI/CD конфигурации</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Icon name="Check" size={20} className="text-green-400" />
+                        <span className="text-sm">Интеграция с Use Cases</span>
+                      </div>
+                    </div>
+                  </Card>
+
+                  <Card className="p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <Icon name="Sparkles" size={24} className="text-purple-400" />
+                      <h3 className="text-xl font-semibold">Автоматизация</h3>
+                    </div>
+                    <div className="space-y-3 text-sm">
+                      <div className="p-3 bg-muted/50 rounded">
+                        <p className="font-semibold mb-1">Из Use Cases в API</p>
+                        <p className="text-xs text-muted-foreground">
+                          Автоматическая генерация endpoints на основе сценариев использования
+                        </p>
+                      </div>
+                      <div className="p-3 bg-muted/50 rounded">
+                        <p className="font-semibold mb-1">Схемы из архитектуры</p>
+                        <p className="text-xs text-muted-foreground">
+                          Использование архитектурных компонентов для создания моделей данных
+                        </p>
+                      </div>
+                      <div className="p-3 bg-muted/50 rounded">
+                        <p className="font-semibold mb-1">Валидация контрактов</p>
+                        <p className="text-xs text-muted-foreground">
+                          Проверка соответствия RESTful принципам и best practices
+                        </p>
                       </div>
                     </div>
                   </Card>
