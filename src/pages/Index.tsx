@@ -176,6 +176,17 @@ export default function Index() {
   const [c4Level, setC4Level] = useState<'context' | 'container' | 'component' | 'code'>('container');
   const [showAIAssistant, setShowAIAssistant] = useState(true);
   const [archConnections, setArchConnections] = useState<any[]>([]);
+  const [isApiDesignOpen, setIsApiDesignOpen] = useState(false);
+  const [selectedEndpoint, setSelectedEndpoint] = useState<string | null>(null);
+  const [isEndpointDialogOpen, setIsEndpointDialogOpen] = useState(false);
+  const [endpointDetails, setEndpointDetails] = useState({
+    method: 'GET',
+    path: '',
+    description: '',
+    requestBody: '',
+    responseBody: '',
+    status: '200'
+  });
   const canvasRef = useRef<HTMLDivElement>(null);
   const draftTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -2619,9 +2630,11 @@ export default function Index() {
 
             {currentStage === 4 && (
               <div>
+                {!isApiDesignOpen ? (
+                  <>
                 <Card 
                   className="p-8 mb-6 bg-gradient-to-br from-green-500/10 via-blue-500/10 to-cyan-500/10 border-2 border-green-500/30 cursor-pointer hover:scale-105 transition-transform group"
-                  onClick={() => window.open('/api-design', '_blank')}
+                  onClick={() => setIsApiDesignOpen(true)}
                 >
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-4">
@@ -2661,7 +2674,7 @@ export default function Index() {
 
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Icon name="Info" size={16} />
-                    <span>Нажмите для открытия в новой вкладке</span>
+                    <span>Нажмите для открытия API Design Studio</span>
                   </div>
                 </Card>
 
@@ -2726,6 +2739,384 @@ export default function Index() {
                     </div>
                   </Card>
                 </div>
+                  </>
+                ) : (
+                  <div className="animate-fade-in">
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center gap-3">
+                        <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-green-500 to-blue-500 flex items-center justify-center">
+                          <Icon name="Code" size={24} className="text-white" />
+                        </div>
+                        <div>
+                          <h2 className="text-3xl font-bold">API Design Studio</h2>
+                          <p className="text-sm text-muted-foreground">Управление и документирование API endpoints</p>
+                        </div>
+                      </div>
+                      <Button 
+                        variant="outline"
+                        onClick={() => setIsApiDesignOpen(false)}
+                      >
+                        <Icon name="X" size={18} className="mr-2" />
+                        Закрыть студию
+                      </Button>
+                    </div>
+
+                    <div className="grid gap-6">
+                      <Card className="p-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-xl font-semibold flex items-center gap-2">
+                            <Icon name="List" size={20} className="text-green-400" />
+                            API Endpoints
+                          </h3>
+                          <Dialog open={isEndpointDialogOpen} onOpenChange={setIsEndpointDialogOpen}>
+                            <DialogTrigger asChild>
+                              <Button className="bg-gradient-to-r from-green-600 to-blue-600">
+                                <Icon name="Plus" size={18} className="mr-2" />
+                                Создать Endpoint
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-3xl">
+                              <DialogHeader>
+                                <DialogTitle>Создать новый API Endpoint</DialogTitle>
+                              </DialogHeader>
+                              <div className="space-y-4 py-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <Label>HTTP Метод</Label>
+                                    <Select 
+                                      value={endpointDetails.method} 
+                                      onValueChange={(value) => setEndpointDetails(prev => ({...prev, method: value}))}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="GET">GET</SelectItem>
+                                        <SelectItem value="POST">POST</SelectItem>
+                                        <SelectItem value="PUT">PUT</SelectItem>
+                                        <SelectItem value="DELETE">DELETE</SelectItem>
+                                        <SelectItem value="PATCH">PATCH</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div>
+                                    <Label>Путь</Label>
+                                    <Input 
+                                      placeholder="/api/resource"
+                                      value={endpointDetails.path}
+                                      onChange={(e) => setEndpointDetails(prev => ({...prev, path: e.target.value}))}
+                                      className="font-mono"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <Label>Описание</Label>
+                                  <Textarea 
+                                    placeholder="Описание функциональности endpoint"
+                                    value={endpointDetails.description}
+                                    onChange={(e) => setEndpointDetails(prev => ({...prev, description: e.target.value}))}
+                                  />
+                                </div>
+
+                                <div>
+                                  <Label>Request Body (JSON Schema)</Label>
+                                  <Textarea 
+                                    placeholder='{\n  "name": "string",\n  "email": "string"\n}'
+                                    value={endpointDetails.requestBody}
+                                    onChange={(e) => setEndpointDetails(prev => ({...prev, requestBody: e.target.value}))}
+                                    className="font-mono text-sm"
+                                  />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <Label>Response Body (JSON)</Label>
+                                    <Textarea 
+                                      placeholder='{\n  "id": 1,\n  "status": "success"\n}'
+                                      value={endpointDetails.responseBody}
+                                      onChange={(e) => setEndpointDetails(prev => ({...prev, responseBody: e.target.value}))}
+                                      className="font-mono text-sm"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label>Response Status</Label>
+                                    <Select 
+                                      value={endpointDetails.status} 
+                                      onValueChange={(value) => setEndpointDetails(prev => ({...prev, status: value}))}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="200">200 OK</SelectItem>
+                                        <SelectItem value="201">201 Created</SelectItem>
+                                        <SelectItem value="204">204 No Content</SelectItem>
+                                        <SelectItem value="400">400 Bad Request</SelectItem>
+                                        <SelectItem value="401">401 Unauthorized</SelectItem>
+                                        <SelectItem value="404">404 Not Found</SelectItem>
+                                        <SelectItem value="500">500 Server Error</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </div>
+
+                                <div className="flex gap-3 pt-4">
+                                  <Button 
+                                    className="flex-1 bg-gradient-to-r from-green-600 to-blue-600"
+                                    onClick={() => {
+                                      const fullEndpoint = `${endpointDetails.method} ${endpointDetails.path}`;
+                                      setApiEndpoints(prev => [...prev, fullEndpoint]);
+                                      setEndpointDetails({
+                                        method: 'GET',
+                                        path: '',
+                                        description: '',
+                                        requestBody: '',
+                                        responseBody: '',
+                                        status: '200'
+                                      });
+                                      setIsEndpointDialogOpen(false);
+                                    }}
+                                    disabled={!endpointDetails.path.trim()}
+                                  >
+                                    Создать Endpoint
+                                  </Button>
+                                  <Button 
+                                    variant="outline" 
+                                    className="flex-1" 
+                                    onClick={() => setIsEndpointDialogOpen(false)}
+                                  >
+                                    Отмена
+                                  </Button>
+                                </div>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        </div>
+
+                        <div className="space-y-2">
+                          {apiEndpoints.length === 0 ? (
+                            <div className="text-center py-12 border-2 border-dashed border-border rounded-lg">
+                              <Icon name="Code" size={48} className="mx-auto mb-3 text-muted-foreground opacity-50" />
+                              <p className="text-muted-foreground">Нет endpoints. Создайте первый API endpoint.</p>
+                            </div>
+                          ) : (
+                            apiEndpoints.map((endpoint, idx) => {
+                              const [method, ...pathParts] = endpoint.split(' ');
+                              const path = pathParts.join(' ');
+                              const methodColors: Record<string, string> = {
+                                'GET': 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+                                'POST': 'bg-green-500/20 text-green-400 border-green-500/30',
+                                'PUT': 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+                                'DELETE': 'bg-red-500/20 text-red-400 border-red-500/30',
+                                'PATCH': 'bg-purple-500/20 text-purple-400 border-purple-500/30'
+                              };
+
+                              return (
+                                <Card 
+                                  key={idx} 
+                                  className="p-4 hover-scale cursor-pointer group"
+                                  onClick={() => setSelectedEndpoint(endpoint)}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3 flex-1">
+                                      <Badge className={`${methodColors[method] || 'bg-muted'} font-mono px-3 py-1 border`}>
+                                        {method}
+                                      </Badge>
+                                      <span className="font-mono text-sm font-medium flex-1">{path}</span>
+                                      {endpoint === selectedEndpoint && (
+                                        <Badge variant="outline" className="text-xs">
+                                          <Icon name="Eye" size={12} className="mr-1" />
+                                          Просмотр
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          navigator.clipboard.writeText(endpoint);
+                                        }}
+                                      >
+                                        <Icon name="Copy" size={16} />
+                                      </Button>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setApiEndpoints(prev => prev.filter((_, i) => i !== idx));
+                                          if (selectedEndpoint === endpoint) setSelectedEndpoint(null);
+                                        }}
+                                      >
+                                        <Icon name="Trash2" size={16} className="text-destructive" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </Card>
+                              );
+                            })
+                          )}
+                        </div>
+                      </Card>
+
+                      {selectedEndpoint && (
+                        <Card className="p-6 animate-fade-in">
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-xl font-semibold flex items-center gap-2">
+                              <Icon name="FileText" size={20} className="text-purple-400" />
+                              Документация Endpoint
+                            </h3>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => setSelectedEndpoint(null)}
+                            >
+                              <Icon name="X" size={16} />
+                            </Button>
+                          </div>
+
+                          <div className="space-y-4">
+                            <div className="bg-muted/30 p-4 rounded-lg border border-border">
+                              <p className="text-xs text-muted-foreground mb-2">Endpoint URL</p>
+                              <code className="text-lg font-mono font-bold">{selectedEndpoint}</code>
+                            </div>
+
+                            <div>
+                              <h4 className="font-semibold mb-2 flex items-center gap-2">
+                                <Icon name="FileCode" size={16} className="text-blue-400" />
+                                Request Example (cURL)
+                              </h4>
+                              <pre className="bg-muted/50 p-4 rounded-lg border border-border overflow-x-auto">
+                                <code className="text-sm font-mono">
+{`curl -X ${selectedEndpoint.split(' ')[0]} \\
+  https://api.example.com${selectedEndpoint.split(' ').slice(1).join(' ')} \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_TOKEN" \\
+  -d '{"key": "value"}'`}
+                                </code>
+                              </pre>
+                            </div>
+
+                            <div className="grid md:grid-cols-2 gap-4">
+                              <div>
+                                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                                  <Icon name="ArrowUp" size={16} className="text-green-400" />
+                                  Request Body
+                                </h4>
+                                <pre className="bg-muted/50 p-4 rounded-lg border border-border overflow-x-auto text-sm font-mono">
+{`{
+  "name": "string",
+  "email": "string",
+  "data": {}
+}`}
+                                </pre>
+                              </div>
+                              <div>
+                                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                                  <Icon name="ArrowDown" size={16} className="text-blue-400" />
+                                  Response Body
+                                </h4>
+                                <pre className="bg-muted/50 p-4 rounded-lg border border-border overflow-x-auto text-sm font-mono">
+{`{
+  "id": 123,
+  "status": "success",
+  "message": "OK"
+}`}
+                                </pre>
+                              </div>
+                            </div>
+
+                            <div>
+                              <h4 className="font-semibold mb-2 flex items-center gap-2">
+                                <Icon name="Shield" size={16} className="text-yellow-400" />
+                                Authentication
+                              </h4>
+                              <div className="bg-yellow-500/10 border border-yellow-500/30 p-4 rounded-lg">
+                                <p className="text-sm">Требуется Bearer Token в заголовке Authorization</p>
+                              </div>
+                            </div>
+
+                            <div className="flex gap-3">
+                              <Button variant="outline">
+                                <Icon name="PlayCircle" size={16} className="mr-2" />
+                                Тестировать
+                              </Button>
+                              <Button variant="outline">
+                                <Icon name="Download" size={16} className="mr-2" />
+                                Экспорт OpenAPI
+                              </Button>
+                              <Button variant="outline">
+                                <Icon name="Code" size={16} className="mr-2" />
+                                Генерация кода
+                              </Button>
+                            </div>
+                          </div>
+                        </Card>
+                      )}
+
+                      <div className="grid md:grid-cols-3 gap-4">
+                        <Card className="p-6">
+                          <Icon name="BarChart" size={32} className="text-green-400 mb-3" />
+                          <h4 className="font-semibold mb-2">Статистика</h4>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Всего endpoints:</span>
+                              <span className="font-bold">{apiEndpoints.length}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">GET:</span>
+                              <span className="font-bold">{apiEndpoints.filter(e => e.startsWith('GET')).length}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">POST:</span>
+                              <span className="font-bold">{apiEndpoints.filter(e => e.startsWith('POST')).length}</span>
+                            </div>
+                          </div>
+                        </Card>
+
+                        <Card className="p-6">
+                          <Icon name="FileText" size={32} className="text-blue-400 mb-3" />
+                          <h4 className="font-semibold mb-2">Документация</h4>
+                          <div className="space-y-2">
+                            <Button variant="outline" size="sm" className="w-full justify-start">
+                              <Icon name="Download" size={14} className="mr-2" />
+                              OpenAPI 3.0
+                            </Button>
+                            <Button variant="outline" size="sm" className="w-full justify-start">
+                              <Icon name="Download" size={14} className="mr-2" />
+                              Postman Collection
+                            </Button>
+                          </div>
+                        </Card>
+
+                        <Card className="p-6">
+                          <Icon name="Zap" size={32} className="text-yellow-400 mb-3" />
+                          <h4 className="font-semibold mb-2">Быстрые действия</h4>
+                          <div className="space-y-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="w-full justify-start"
+                              onClick={() => {
+                                navigator.clipboard.writeText(apiEndpoints.join('\n'));
+                              }}
+                            >
+                              <Icon name="Copy" size={14} className="mr-2" />
+                              Копировать все
+                            </Button>
+                            <Button variant="outline" size="sm" className="w-full justify-start">
+                              <Icon name="Code" size={14} className="mr-2" />
+                              Генерация SDK
+                            </Button>
+                          </div>
+                        </Card>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
