@@ -193,6 +193,9 @@ export default function Index() {
   const [testResponse, setTestResponse] = useState<any>(null);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState<'openapi' | 'postman'>('openapi');
+  const [isCodeGenDialogOpen, setIsCodeGenDialogOpen] = useState(false);
+  const [codeGenLanguage, setCodeGenLanguage] = useState<'typescript' | 'python' | 'java'>('typescript');
+  const [jsonValidationErrors, setJsonValidationErrors] = useState({ requestBody: '', responseBody: '' });
   const canvasRef = useRef<HTMLDivElement>(null);
   const draftTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -515,19 +518,29 @@ export default function Index() {
     
     await new Promise(resolve => setTimeout(resolve, 1500));
     
+    let responseData = {
+      id: 123,
+      status: 'success',
+      message: 'Mock response',
+      timestamp: new Date().toISOString()
+    };
+    
+    try {
+      if (endpointDetailsMap[selectedEndpoint]?.responseBody) {
+        responseData = JSON.parse(endpointDetailsMap[selectedEndpoint].responseBody);
+      }
+    } catch (e) {
+      // Use default mock data if parsing fails
+    }
+    
     const mockResponse = {
-      status: 200,
+      status: parseInt(endpointDetailsMap[selectedEndpoint]?.status || '200'),
       statusText: 'OK',
       headers: {
         'Content-Type': 'application/json',
         'X-Response-Time': '42ms'
       },
-      data: endpointDetailsMap[selectedEndpoint]?.responseBody || {
-        id: 123,
-        status: 'success',
-        message: 'Mock response',
-        timestamp: new Date().toISOString()
-      }
+      data: responseData
     };
     
     setTestResponse(mockResponse);
@@ -3028,7 +3041,13 @@ public class ApiClient {
                             <Icon name="List" size={20} className="text-green-400" />
                             API Endpoints
                           </h3>
-                          <Dialog open={isEndpointDialogOpen} onOpenChange={setIsEndpointDialogOpen}>
+                          <Dialog open={isEndpointDialogOpen} onOpenChange={(open) => {
+                            setIsEndpointDialogOpen(open);
+                            if (!open) {
+                              setJsonValidationErrors({ requestBody: '', responseBody: '' });
+                              setEditingEndpoint(null);
+                            }
+                          }}>
                             <DialogTrigger asChild>
                               <Button className="bg-gradient-to-r from-green-600 to-blue-600">
                                 <Icon name="Plus" size={18} className="mr-2" />
@@ -3084,9 +3103,26 @@ public class ApiClient {
                                   <Textarea 
                                     placeholder='{\n  "name": "string",\n  "email": "string"\n}'
                                     value={endpointDetails.requestBody}
-                                    onChange={(e) => setEndpointDetails(prev => ({...prev, requestBody: e.target.value}))}
-                                    className="font-mono text-sm"
+                                    onChange={(e) => {
+                                      const value = e.target.value;
+                                      setEndpointDetails(prev => ({...prev, requestBody: value}));
+                                      
+                                      if (value.trim()) {
+                                        try {
+                                          JSON.parse(value);
+                                          setJsonValidationErrors(prev => ({...prev, requestBody: ''}));
+                                        } catch (err) {
+                                          setJsonValidationErrors(prev => ({...prev, requestBody: 'Невалидный JSON'}));
+                                        }
+                                      } else {
+                                        setJsonValidationErrors(prev => ({...prev, requestBody: ''}));
+                                      }
+                                    }}
+                                    className={`font-mono text-sm ${jsonValidationErrors.requestBody ? 'border-red-500' : ''}`}
                                   />
+                                  {jsonValidationErrors.requestBody && (
+                                    <p className="text-xs text-red-500 mt-1">{jsonValidationErrors.requestBody}</p>
+                                  )}
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
@@ -3095,9 +3131,26 @@ public class ApiClient {
                                     <Textarea 
                                       placeholder='{\n  "id": 1,\n  "status": "success"\n}'
                                       value={endpointDetails.responseBody}
-                                      onChange={(e) => setEndpointDetails(prev => ({...prev, responseBody: e.target.value}))}
-                                      className="font-mono text-sm"
+                                      onChange={(e) => {
+                                        const value = e.target.value;
+                                        setEndpointDetails(prev => ({...prev, responseBody: value}));
+                                        
+                                        if (value.trim()) {
+                                          try {
+                                            JSON.parse(value);
+                                            setJsonValidationErrors(prev => ({...prev, responseBody: ''}));
+                                          } catch (err) {
+                                            setJsonValidationErrors(prev => ({...prev, responseBody: 'Невалидный JSON'}));
+                                          }
+                                        } else {
+                                          setJsonValidationErrors(prev => ({...prev, responseBody: ''}));
+                                        }
+                                      }}
+                                      className={`font-mono text-sm ${jsonValidationErrors.responseBody ? 'border-red-500' : ''}`}
                                     />
+                                    {jsonValidationErrors.responseBody && (
+                                      <p className="text-xs text-red-500 mt-1">{jsonValidationErrors.responseBody}</p>
+                                    )}
                                   </div>
                                   <div>
                                     <Label>Response Status</Label>
@@ -3125,15 +3178,37 @@ public class ApiClient {
                                   <Button 
                                     className="flex-1 bg-gradient-to-r from-green-600 to-blue-600"
                                     onClick={() => {
-                                      const fullEndpoint = `${endpointDetails.method} ${endpointDetails.path}`;
+                                      let path = endpointDetails.path.trim();
+                                      
+                                      // Validate path starts with /
+                                      if (path && !path.startsWith('/')) {
+                                        path = '/' + path;
+                                      }
+                                      
+                                      const fullEndpoint = `${endpointDetails.method} ${path}`;
                                       
                                       if (editingEndpoint) {
                                         setApiEndpoints(prev => prev.map(e => e === editingEndpoint ? fullEndpoint : e));
-                                        saveEndpointDetails(fullEndpoint, endpointDetails);
+                                        
+                                        // Remove old endpoint details if key changed
+                                        if (editingEndpoint !== fullEndpoint) {
+                                          setEndpointDetailsMap(prev => {
+                                            const newMap = { ...prev };
+                                            delete newMap[editingEndpoint];
+                                            return newMap;
+                                          });
+                                          
+                                          // Update selectedEndpoint if it was the edited one
+                                          if (selectedEndpoint === editingEndpoint) {
+                                            setSelectedEndpoint(fullEndpoint);
+                                          }
+                                        }
+                                        
+                                        saveEndpointDetails(fullEndpoint, { ...endpointDetails, path });
                                         setEditingEndpoint(null);
                                       } else {
                                         setApiEndpoints(prev => [...prev, fullEndpoint]);
-                                        saveEndpointDetails(fullEndpoint, endpointDetails);
+                                        saveEndpointDetails(fullEndpoint, { ...endpointDetails, path });
                                       }
                                       
                                       setEndpointDetails({
@@ -3144,9 +3219,14 @@ public class ApiClient {
                                         responseBody: '',
                                         status: '200'
                                       });
+                                      setJsonValidationErrors({ requestBody: '', responseBody: '' });
                                       setIsEndpointDialogOpen(false);
                                     }}
-                                    disabled={!endpointDetails.path.trim()}
+                                    disabled={
+                                      !endpointDetails.path.trim() || 
+                                      !!jsonValidationErrors.requestBody || 
+                                      !!jsonValidationErrors.responseBody
+                                    }
                                   >
                                     {editingEndpoint ? 'Сохранить изменения' : 'Создать Endpoint'}
                                   </Button>
@@ -3271,20 +3351,36 @@ public class ApiClient {
                             <div className="bg-muted/30 p-4 rounded-lg border border-border">
                               <p className="text-xs text-muted-foreground mb-2">Endpoint URL</p>
                               <code className="text-lg font-mono font-bold">{selectedEndpoint}</code>
+                              {endpointDetailsMap[selectedEndpoint]?.description && (
+                                <p className="text-sm text-muted-foreground mt-2">
+                                  {endpointDetailsMap[selectedEndpoint].description}
+                                </p>
+                              )}
                             </div>
 
                             <div>
-                              <h4 className="font-semibold mb-2 flex items-center gap-2">
-                                <Icon name="FileCode" size={16} className="text-blue-400" />
-                                Request Example (cURL)
-                              </h4>
+                              <div className="flex items-center justify-between mb-2">
+                                <h4 className="font-semibold flex items-center gap-2">
+                                  <Icon name="FileCode" size={16} className="text-blue-400" />
+                                  Request Example (cURL)
+                                </h4>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => {
+                                    const curlCmd = `curl -X ${selectedEndpoint.split(' ')[0]} \\\n  https://api.example.com${selectedEndpoint.split(' ').slice(1).join(' ')} \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer YOUR_TOKEN"${endpointDetailsMap[selectedEndpoint]?.requestBody ? ` \\\n  -d '${endpointDetailsMap[selectedEndpoint].requestBody.replace(/\n/g, ' ')}'` : ''}`;
+                                    navigator.clipboard.writeText(curlCmd);
+                                  }}
+                                >
+                                  <Icon name="Copy" size={14} />
+                                </Button>
+                              </div>
                               <pre className="bg-muted/50 p-4 rounded-lg border border-border overflow-x-auto">
                                 <code className="text-sm font-mono">
 {`curl -X ${selectedEndpoint.split(' ')[0]} \\
   https://api.example.com${selectedEndpoint.split(' ').slice(1).join(' ')} \\
   -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer YOUR_TOKEN" \\
-  -d '{"key": "value"}'`}
+  -H "Authorization: Bearer YOUR_TOKEN"${endpointDetailsMap[selectedEndpoint]?.requestBody ? ` \\\n  -d '${endpointDetailsMap[selectedEndpoint].requestBody.replace(/\n/g, ' ')}'` : ''}`}
                                 </code>
                               </pre>
                             </div>
@@ -3296,7 +3392,7 @@ public class ApiClient {
                                   Request Body
                                 </h4>
                                 <pre className="bg-muted/50 p-4 rounded-lg border border-border overflow-x-auto text-sm font-mono">
-{`{
+{endpointDetailsMap[selectedEndpoint]?.requestBody || `{
   "name": "string",
   "email": "string",
   "data": {}
@@ -3309,7 +3405,7 @@ public class ApiClient {
                                   Response Body
                                 </h4>
                                 <pre className="bg-muted/50 p-4 rounded-lg border border-border overflow-x-auto text-sm font-mono">
-{`{
+{endpointDetailsMap[selectedEndpoint]?.responseBody || `{
   "id": 123,
   "status": "success",
   "message": "OK"
@@ -3318,13 +3414,34 @@ public class ApiClient {
                               </div>
                             </div>
 
-                            <div>
-                              <h4 className="font-semibold mb-2 flex items-center gap-2">
-                                <Icon name="Shield" size={16} className="text-yellow-400" />
-                                Authentication
-                              </h4>
-                              <div className="bg-yellow-500/10 border border-yellow-500/30 p-4 rounded-lg">
-                                <p className="text-sm">Требуется Bearer Token в заголовке Authorization</p>
+                            <div className="grid md:grid-cols-2 gap-4">
+                              <div>
+                                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                                  <Icon name="CheckCircle" size={16} className="text-green-400" />
+                                  Response Status
+                                </h4>
+                                <div className="bg-green-500/10 border border-green-500/30 p-4 rounded-lg">
+                                  <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+                                    {endpointDetailsMap[selectedEndpoint]?.status || '200'} {
+                                      endpointDetailsMap[selectedEndpoint]?.status === '200' ? 'OK' :
+                                      endpointDetailsMap[selectedEndpoint]?.status === '201' ? 'Created' :
+                                      endpointDetailsMap[selectedEndpoint]?.status === '204' ? 'No Content' :
+                                      endpointDetailsMap[selectedEndpoint]?.status === '400' ? 'Bad Request' :
+                                      endpointDetailsMap[selectedEndpoint]?.status === '401' ? 'Unauthorized' :
+                                      endpointDetailsMap[selectedEndpoint]?.status === '404' ? 'Not Found' :
+                                      endpointDetailsMap[selectedEndpoint]?.status === '500' ? 'Server Error' : ''
+                                    }
+                                  </Badge>
+                                </div>
+                              </div>
+                              <div>
+                                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                                  <Icon name="Shield" size={16} className="text-yellow-400" />
+                                  Authentication
+                                </h4>
+                                <div className="bg-yellow-500/10 border border-yellow-500/30 p-4 rounded-lg">
+                                  <p className="text-sm">Bearer Token в Authorization</p>
+                                </div>
                               </div>
                             </div>
 
@@ -3346,8 +3463,8 @@ public class ApiClient {
                               <Button 
                                 variant="outline"
                                 onClick={() => {
-                                  const code = generateCode('typescript');
-                                  navigator.clipboard.writeText(code);
+                                  setCodeGenLanguage('typescript');
+                                  setIsCodeGenDialogOpen(true);
                                 }}
                               >
                                 <Icon name="Code" size={16} className="mr-2" />
@@ -3412,11 +3529,16 @@ public class ApiClient {
                               size="sm" 
                               className="w-full justify-start"
                               onClick={() => {
-                                navigator.clipboard.writeText(apiEndpoints.join('\n'));
+                                const exportData = {
+                                  endpoints: apiEndpoints,
+                                  details: endpointDetailsMap,
+                                  exportedAt: new Date().toISOString()
+                                };
+                                navigator.clipboard.writeText(JSON.stringify(exportData, null, 2));
                               }}
                             >
                               <Icon name="Copy" size={14} className="mr-2" />
-                              Копировать все
+                              Копировать все (JSON)
                             </Button>
                             <Dialog>
                               <DialogTrigger asChild>
@@ -3606,6 +3728,90 @@ public class ApiClient {
                                 Копировать
                               </Button>
                             </div>
+                          </TabsContent>
+                        </Tabs>
+                      </DialogContent>
+                    </Dialog>
+
+                    <Dialog open={isCodeGenDialogOpen} onOpenChange={setIsCodeGenDialogOpen}>
+                      <DialogContent className="max-w-4xl">
+                        <DialogHeader>
+                          <DialogTitle>Генерация кода клиента</DialogTitle>
+                          <p className="text-sm text-muted-foreground">
+                            {selectedEndpoint || 'Выберите endpoint для генерации кода'}
+                          </p>
+                        </DialogHeader>
+                        <Tabs value={codeGenLanguage} onValueChange={(v: any) => setCodeGenLanguage(v)}>
+                          <TabsList className="grid w-full grid-cols-3">
+                            <TabsTrigger value="typescript">TypeScript</TabsTrigger>
+                            <TabsTrigger value="python">Python</TabsTrigger>
+                            <TabsTrigger value="java">Java</TabsTrigger>
+                          </TabsList>
+                          <TabsContent value="typescript" className="space-y-4">
+                            <div>
+                              <div className="flex items-center justify-between mb-2">
+                                <p className="text-sm font-semibold">Axios Client</p>
+                                <Badge variant="outline">TypeScript</Badge>
+                              </div>
+                              <pre className="bg-muted/50 p-4 rounded-lg border border-border overflow-x-auto text-sm font-mono max-h-96">
+                                <code>{selectedEndpoint ? generateCode('typescript') : '// Выберите endpoint'}</code>
+                              </pre>
+                            </div>
+                            <Button 
+                              onClick={() => {
+                                if (selectedEndpoint) {
+                                  navigator.clipboard.writeText(generateCode('typescript'));
+                                }
+                              }}
+                              disabled={!selectedEndpoint}
+                            >
+                              <Icon name="Copy" size={16} className="mr-2" />
+                              Копировать код
+                            </Button>
+                          </TabsContent>
+                          <TabsContent value="python" className="space-y-4">
+                            <div>
+                              <div className="flex items-center justify-between mb-2">
+                                <p className="text-sm font-semibold">Requests Client</p>
+                                <Badge variant="outline">Python</Badge>
+                              </div>
+                              <pre className="bg-muted/50 p-4 rounded-lg border border-border overflow-x-auto text-sm font-mono max-h-96">
+                                <code>{selectedEndpoint ? generateCode('python') : '# Выберите endpoint'}</code>
+                              </pre>
+                            </div>
+                            <Button 
+                              onClick={() => {
+                                if (selectedEndpoint) {
+                                  navigator.clipboard.writeText(generateCode('python'));
+                                }
+                              }}
+                              disabled={!selectedEndpoint}
+                            >
+                              <Icon name="Copy" size={16} className="mr-2" />
+                              Копировать код
+                            </Button>
+                          </TabsContent>
+                          <TabsContent value="java" className="space-y-4">
+                            <div>
+                              <div className="flex items-center justify-between mb-2">
+                                <p className="text-sm font-semibold">OkHttp Client</p>
+                                <Badge variant="outline">Java</Badge>
+                              </div>
+                              <pre className="bg-muted/50 p-4 rounded-lg border border-border overflow-x-auto text-sm font-mono max-h-96">
+                                <code>{selectedEndpoint ? generateCode('java') : '// Выберите endpoint'}</code>
+                              </pre>
+                            </div>
+                            <Button 
+                              onClick={() => {
+                                if (selectedEndpoint) {
+                                  navigator.clipboard.writeText(generateCode('java'));
+                                }
+                              }}
+                              disabled={!selectedEndpoint}
+                            >
+                              <Icon name="Copy" size={16} className="mr-2" />
+                              Копировать код
+                            </Button>
                           </TabsContent>
                         </Tabs>
                       </DialogContent>
