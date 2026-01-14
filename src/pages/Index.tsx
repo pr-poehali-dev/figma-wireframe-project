@@ -105,7 +105,7 @@ interface OKR {
 
 
 export default function Index() {
-  const { updateContext, analyzeAction, isActive, speak, addMessage, trackUserAction } = useArchitecton();
+  const { updateContext, analyzeAction, isActive, addMessage, trackUserAction } = useArchitecton();
   const [showWelcome, setShowWelcome] = useState(true);
   const [showActivation, setShowActivation] = useState(false);
   const [currentStage, setCurrentStage] = useState(1);
