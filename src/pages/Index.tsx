@@ -179,6 +179,8 @@ export default function Index() {
   const [isApiDesignOpen, setIsApiDesignOpen] = useState(false);
   const [selectedEndpoint, setSelectedEndpoint] = useState<string | null>(null);
   const [isEndpointDialogOpen, setIsEndpointDialogOpen] = useState(false);
+  const [editingEndpoint, setEditingEndpoint] = useState<string | null>(null);
+  const [endpointDetailsMap, setEndpointDetailsMap] = useState<Record<string, any>>({});
   const [endpointDetails, setEndpointDetails] = useState({
     method: 'GET',
     path: '',
@@ -187,6 +189,10 @@ export default function Index() {
     responseBody: '',
     status: '200'
   });
+  const [isTestDialogOpen, setIsTestDialogOpen] = useState(false);
+  const [testResponse, setTestResponse] = useState<any>(null);
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [exportFormat, setExportFormat] = useState<'openapi' | 'postman'>('openapi');
   const canvasRef = useRef<HTMLDivElement>(null);
   const draftTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -491,6 +497,260 @@ export default function Index() {
       setOkrs(prev => prev.filter(okr => okr.id !== id));
     } catch (error) {
       console.error('Error deleting OKR:', error);
+    }
+  };
+
+  const saveEndpointDetails = (endpoint: string, details: any) => {
+    setEndpointDetailsMap(prev => ({
+      ...prev,
+      [endpoint]: details
+    }));
+  };
+
+  const testEndpoint = async () => {
+    if (!selectedEndpoint) return;
+    
+    setIsTestDialogOpen(true);
+    setTestResponse({ loading: true });
+    
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    const mockResponse = {
+      status: 200,
+      statusText: 'OK',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Response-Time': '42ms'
+      },
+      data: endpointDetailsMap[selectedEndpoint]?.responseBody || {
+        id: 123,
+        status: 'success',
+        message: 'Mock response',
+        timestamp: new Date().toISOString()
+      }
+    };
+    
+    setTestResponse(mockResponse);
+  };
+
+  const generateOpenAPISpec = () => {
+    const spec = {
+      openapi: '3.0.0',
+      info: {
+        title: 'Project API',
+        version: '1.0.0',
+        description: 'API documentation generated from Project Pipeline'
+      },
+      servers: [
+        {
+          url: 'https://api.example.com',
+          description: 'Production server'
+        }
+      ],
+      paths: {} as Record<string, any>
+    };
+
+    apiEndpoints.forEach(endpoint => {
+      const [method, ...pathParts] = endpoint.split(' ');
+      const path = pathParts.join(' ');
+      const details = endpointDetailsMap[endpoint];
+      
+      if (!spec.paths[path]) {
+        spec.paths[path] = {};
+      }
+
+      let requestExample = {};
+      let responseExample = {};
+      
+      try {
+        if (details?.requestBody) {
+          requestExample = JSON.parse(details.requestBody);
+        }
+      } catch (e) {
+        requestExample = { note: 'Invalid JSON' };
+      }
+      
+      try {
+        if (details?.responseBody) {
+          responseExample = JSON.parse(details.responseBody);
+        }
+      } catch (e) {
+        responseExample = { note: 'Invalid JSON' };
+      }
+
+      spec.paths[path][method.toLowerCase()] = {
+        summary: details?.description || `${method} ${path}`,
+        description: details?.description || '',
+        requestBody: details?.requestBody ? {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                example: requestExample
+              }
+            }
+          }
+        } : undefined,
+        responses: {
+          [details?.status || '200']: {
+            description: 'Successful response',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  example: responseExample
+                }
+              }
+            }
+          }
+        }
+      };
+    });
+
+    return JSON.stringify(spec, null, 2);
+  };
+
+  const generatePostmanCollection = () => {
+    const collection = {
+      info: {
+        name: 'Project API Collection',
+        description: 'Generated from Project Pipeline',
+        schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json'
+      },
+      item: apiEndpoints.map(endpoint => {
+        const [method, ...pathParts] = endpoint.split(' ');
+        const path = pathParts.join(' ');
+        const details = endpointDetailsMap[endpoint];
+        
+        return {
+          name: `${method} ${path}`,
+          request: {
+            method: method,
+            header: [
+              {
+                key: 'Content-Type',
+                value: 'application/json'
+              },
+              {
+                key: 'Authorization',
+                value: 'Bearer {{token}}'
+              }
+            ],
+            body: details?.requestBody ? {
+              mode: 'raw',
+              raw: details.requestBody
+            } : undefined,
+            url: {
+              raw: `https://api.example.com${path}`,
+              protocol: 'https',
+              host: ['api', 'example', 'com'],
+              path: path.split('/').filter(Boolean)
+            }
+          },
+          response: []
+        };
+      })
+    };
+
+    return JSON.stringify(collection, null, 2);
+  };
+
+  const downloadExport = (format: 'openapi' | 'postman') => {
+    const content = format === 'openapi' ? generateOpenAPISpec() : generatePostmanCollection();
+    const filename = format === 'openapi' ? 'openapi-spec.json' : 'postman-collection.json';
+    
+    const blob = new Blob([content], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const generateCode = (language: 'typescript' | 'python' | 'java') => {
+    if (!selectedEndpoint) return '';
+
+    const [method, ...pathParts] = selectedEndpoint.split(' ');
+    const path = pathParts.join(' ');
+    const details = endpointDetailsMap[selectedEndpoint];
+    
+    const pathSegments = path.split('/').filter(p => p);
+    const funcName = pathSegments.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join('');
+    const pythonFuncName = pathSegments.join('_');
+
+    if (language === 'typescript') {
+      return `// TypeScript/Axios Example
+import axios from 'axios';
+
+const ${method.toLowerCase()}${funcName} = async () => {
+  try {
+    const response = await axios.${method.toLowerCase()}(
+      'https://api.example.com${path}',
+      ${details?.requestBody ? `\n      ${details.requestBody},` : ''}
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer YOUR_TOKEN'
+        }
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error:', error);
+    throw error;
+  }
+};`;
+    } else if (language === 'python') {
+      return `# Python/Requests Example
+import requests
+
+def ${method.toLowerCase()}_${pythonFuncName}():
+    url = 'https://api.example.com${path}'
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer YOUR_TOKEN'
+    }
+    ${details?.requestBody ? `data = ${details.requestBody}` : ''}
+    
+    try:
+        response = requests.${method.toLowerCase()}(
+            url,
+            ${details?.requestBody ? 'json=data,' : ''}
+            headers=headers
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f'Error: {e}')
+        raise`;
+    } else {
+      return `// Java/OkHttp Example
+import okhttp3.*;
+import java.io.IOException;
+
+public class ApiClient {
+    private static final String BASE_URL = "https://api.example.com";
+    private static final OkHttpClient client = new OkHttpClient();
+    
+    public static String ${method.toLowerCase()}${funcName}() throws IOException {
+        ${details?.requestBody ? `MediaType JSON = MediaType.get("application/json; charset=utf-8");
+        RequestBody body = RequestBody.create(${details.requestBody}, JSON);` : ''}
+        
+        Request request = new Request.Builder()
+            .url(BASE_URL + "${path}")
+            .${method.toLowerCase()}(${details?.requestBody ? 'body' : ''})
+            .addHeader("Content-Type", "application/json")
+            .addHeader("Authorization", "Bearer YOUR_TOKEN")
+            .build();
+        
+        try (Response response = client.newCall(request).execute()) {
+            return response.body().string();
+        }
+    }
+}`;
     }
   };
 
@@ -2866,7 +3126,16 @@ export default function Index() {
                                     className="flex-1 bg-gradient-to-r from-green-600 to-blue-600"
                                     onClick={() => {
                                       const fullEndpoint = `${endpointDetails.method} ${endpointDetails.path}`;
-                                      setApiEndpoints(prev => [...prev, fullEndpoint]);
+                                      
+                                      if (editingEndpoint) {
+                                        setApiEndpoints(prev => prev.map(e => e === editingEndpoint ? fullEndpoint : e));
+                                        saveEndpointDetails(fullEndpoint, endpointDetails);
+                                        setEditingEndpoint(null);
+                                      } else {
+                                        setApiEndpoints(prev => [...prev, fullEndpoint]);
+                                        saveEndpointDetails(fullEndpoint, endpointDetails);
+                                      }
+                                      
                                       setEndpointDetails({
                                         method: 'GET',
                                         path: '',
@@ -2879,7 +3148,7 @@ export default function Index() {
                                     }}
                                     disabled={!endpointDetails.path.trim()}
                                   >
-                                    Создать Endpoint
+                                    {editingEndpoint ? 'Сохранить изменения' : 'Создать Endpoint'}
                                   </Button>
                                   <Button 
                                     variant="outline" 
@@ -2932,6 +3201,26 @@ export default function Index() {
                                       )}
                                     </div>
                                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          const details = endpointDetailsMap[endpoint] || {
+                                            method,
+                                            path,
+                                            description: '',
+                                            requestBody: '',
+                                            responseBody: '',
+                                            status: '200'
+                                          };
+                                          setEndpointDetails(details);
+                                          setEditingEndpoint(endpoint);
+                                          setIsEndpointDialogOpen(true);
+                                        }}
+                                      >
+                                        <Icon name="Edit" size={16} />
+                                      </Button>
                                       <Button 
                                         variant="ghost" 
                                         size="sm"
@@ -3040,15 +3329,27 @@ export default function Index() {
                             </div>
 
                             <div className="flex gap-3">
-                              <Button variant="outline">
+                              <Button variant="outline" onClick={testEndpoint}>
                                 <Icon name="PlayCircle" size={16} className="mr-2" />
                                 Тестировать
                               </Button>
-                              <Button variant="outline">
+                              <Button 
+                                variant="outline"
+                                onClick={() => {
+                                  setExportFormat('openapi');
+                                  setIsExportDialogOpen(true);
+                                }}
+                              >
                                 <Icon name="Download" size={16} className="mr-2" />
                                 Экспорт OpenAPI
                               </Button>
-                              <Button variant="outline">
+                              <Button 
+                                variant="outline"
+                                onClick={() => {
+                                  const code = generateCode('typescript');
+                                  navigator.clipboard.writeText(code);
+                                }}
+                              >
                                 <Icon name="Code" size={16} className="mr-2" />
                                 Генерация кода
                               </Button>
@@ -3081,11 +3382,21 @@ export default function Index() {
                           <Icon name="FileText" size={32} className="text-blue-400 mb-3" />
                           <h4 className="font-semibold mb-2">Документация</h4>
                           <div className="space-y-2">
-                            <Button variant="outline" size="sm" className="w-full justify-start">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="w-full justify-start"
+                              onClick={() => downloadExport('openapi')}
+                            >
                               <Icon name="Download" size={14} className="mr-2" />
                               OpenAPI 3.0
                             </Button>
-                            <Button variant="outline" size="sm" className="w-full justify-start">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="w-full justify-start"
+                              onClick={() => downloadExport('postman')}
+                            >
                               <Icon name="Download" size={14} className="mr-2" />
                               Postman Collection
                             </Button>
@@ -3107,14 +3418,198 @@ export default function Index() {
                               <Icon name="Copy" size={14} className="mr-2" />
                               Копировать все
                             </Button>
-                            <Button variant="outline" size="sm" className="w-full justify-start">
-                              <Icon name="Code" size={14} className="mr-2" />
-                              Генерация SDK
-                            </Button>
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button variant="outline" size="sm" className="w-full justify-start">
+                                  <Icon name="Code" size={14} className="mr-2" />
+                                  Генерация SDK
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent className="max-w-4xl">
+                                <DialogHeader>
+                                  <DialogTitle>Генерация SDK</DialogTitle>
+                                </DialogHeader>
+                                <Tabs defaultValue="typescript" className="w-full">
+                                  <TabsList className="grid w-full grid-cols-3">
+                                    <TabsTrigger value="typescript">TypeScript</TabsTrigger>
+                                    <TabsTrigger value="python">Python</TabsTrigger>
+                                    <TabsTrigger value="java">Java</TabsTrigger>
+                                  </TabsList>
+                                  <TabsContent value="typescript" className="space-y-4">
+                                    <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm font-mono max-h-96">
+                                      <code>{selectedEndpoint ? generateCode('typescript') : '// Выберите endpoint для генерации кода'}</code>
+                                    </pre>
+                                    <Button 
+                                      onClick={() => {
+                                        if (selectedEndpoint) {
+                                          navigator.clipboard.writeText(generateCode('typescript'));
+                                        }
+                                      }}
+                                    >
+                                      <Icon name="Copy" size={16} className="mr-2" />
+                                      Копировать код
+                                    </Button>
+                                  </TabsContent>
+                                  <TabsContent value="python" className="space-y-4">
+                                    <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm font-mono max-h-96">
+                                      <code>{selectedEndpoint ? generateCode('python') : '# Выберите endpoint для генерации кода'}</code>
+                                    </pre>
+                                    <Button 
+                                      onClick={() => {
+                                        if (selectedEndpoint) {
+                                          navigator.clipboard.writeText(generateCode('python'));
+                                        }
+                                      }}
+                                    >
+                                      <Icon name="Copy" size={16} className="mr-2" />
+                                      Копировать код
+                                    </Button>
+                                  </TabsContent>
+                                  <TabsContent value="java" className="space-y-4">
+                                    <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm font-mono max-h-96">
+                                      <code>{selectedEndpoint ? generateCode('java') : '// Выберите endpoint для генерации кода'}</code>
+                                    </pre>
+                                    <Button 
+                                      onClick={() => {
+                                        if (selectedEndpoint) {
+                                          navigator.clipboard.writeText(generateCode('java'));
+                                        }
+                                      }}
+                                    >
+                                      <Icon name="Copy" size={16} className="mr-2" />
+                                      Копировать код
+                                    </Button>
+                                  </TabsContent>
+                                </Tabs>
+                              </DialogContent>
+                            </Dialog>
                           </div>
                         </Card>
                       </div>
                     </div>
+
+                    <Dialog open={isTestDialogOpen} onOpenChange={setIsTestDialogOpen}>
+                      <DialogContent className="max-w-2xl">
+                        <DialogHeader>
+                          <DialogTitle>Тестирование Endpoint</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          {testResponse?.loading ? (
+                            <div className="text-center py-8">
+                              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto mb-4"></div>
+                              <p className="text-muted-foreground">Отправка запроса...</p>
+                            </div>
+                          ) : testResponse ? (
+                            <>
+                              <div className="bg-muted/30 p-4 rounded-lg border border-border">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-sm font-semibold">Статус:</span>
+                                  <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+                                    {testResponse.status} {testResponse.statusText}
+                                  </Badge>
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  <p>Время ответа: {testResponse.headers['X-Response-Time']}</p>
+                                </div>
+                              </div>
+
+                              <div>
+                                <h4 className="font-semibold mb-2">Response Headers</h4>
+                                <pre className="bg-muted/50 p-4 rounded-lg border border-border overflow-x-auto text-xs font-mono">
+                                  {JSON.stringify(testResponse.headers, null, 2)}
+                                </pre>
+                              </div>
+
+                              <div>
+                                <h4 className="font-semibold mb-2">Response Body</h4>
+                                <pre className="bg-muted/50 p-4 rounded-lg border border-border overflow-x-auto text-sm font-mono">
+                                  {JSON.stringify(testResponse.data, null, 2)}
+                                </pre>
+                              </div>
+
+                              <div className="flex gap-3">
+                                <Button 
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(JSON.stringify(testResponse.data, null, 2));
+                                  }}
+                                >
+                                  <Icon name="Copy" size={16} className="mr-2" />
+                                  Копировать ответ
+                                </Button>
+                                <Button variant="outline" onClick={testEndpoint}>
+                                  <Icon name="RefreshCw" size={16} className="mr-2" />
+                                  Повторить
+                                </Button>
+                              </div>
+                            </>
+                          ) : null}
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+
+                    <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
+                      <DialogContent className="max-w-3xl">
+                        <DialogHeader>
+                          <DialogTitle>Экспорт API документации</DialogTitle>
+                        </DialogHeader>
+                        <Tabs value={exportFormat} onValueChange={(v: any) => setExportFormat(v)} className="w-full">
+                          <TabsList className="grid w-full grid-cols-2">
+                            <TabsTrigger value="openapi">OpenAPI 3.0</TabsTrigger>
+                            <TabsTrigger value="postman">Postman Collection</TabsTrigger>
+                          </TabsList>
+                          <TabsContent value="openapi" className="space-y-4">
+                            <div>
+                              <p className="text-sm text-muted-foreground mb-4">
+                                OpenAPI спецификация в формате JSON. Совместима со Swagger UI, Redoc и другими инструментами.
+                              </p>
+                              <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-xs font-mono max-h-96">
+                                <code>{generateOpenAPISpec()}</code>
+                              </pre>
+                            </div>
+                            <div className="flex gap-3">
+                              <Button onClick={() => downloadExport('openapi')}>
+                                <Icon name="Download" size={16} className="mr-2" />
+                                Скачать OpenAPI
+                              </Button>
+                              <Button 
+                                variant="outline"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(generateOpenAPISpec());
+                                }}
+                              >
+                                <Icon name="Copy" size={16} className="mr-2" />
+                                Копировать
+                              </Button>
+                            </div>
+                          </TabsContent>
+                          <TabsContent value="postman" className="space-y-4">
+                            <div>
+                              <p className="text-sm text-muted-foreground mb-4">
+                                Postman коллекция v2.1. Импортируйте файл в Postman для быстрого тестирования API.
+                              </p>
+                              <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-xs font-mono max-h-96">
+                                <code>{generatePostmanCollection()}</code>
+                              </pre>
+                            </div>
+                            <div className="flex gap-3">
+                              <Button onClick={() => downloadExport('postman')}>
+                                <Icon name="Download" size={16} className="mr-2" />
+                                Скачать Postman
+                              </Button>
+                              <Button 
+                                variant="outline"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(generatePostmanCollection());
+                                }}
+                              >
+                                <Icon name="Copy" size={16} className="mr-2" />
+                                Копировать
+                              </Button>
+                            </div>
+                          </TabsContent>
+                        </Tabs>
+                      </DialogContent>
+                    </Dialog>
                   </div>
                 )}
               </div>
