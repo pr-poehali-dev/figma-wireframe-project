@@ -808,7 +808,7 @@ export default function Index() {
     updateContext({ 
       projectPhase: phaseMap[currentStage as keyof typeof phaseMap] || 'vision'
     });
-  }, [currentStage, updateContext]);
+  }, [currentStage]);
 
   if (showWelcome) {
     return <ArchitectonWelcomeNew onComplete={() => {
